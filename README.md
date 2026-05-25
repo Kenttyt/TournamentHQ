@@ -26,10 +26,7 @@ A web-based system for managing table tennis tournaments, including player regis
 3. Import the database from the `sql/` directory.
 4. Configure your web server to serve the project directory.
 
-### Usage
-- Access the system via your browser (e.g., http://localhost/table-tennis-system/)
-- Register as a player or log in as an admin/organizer
-- Manage tournaments, matches, and players
+
 
 
 
