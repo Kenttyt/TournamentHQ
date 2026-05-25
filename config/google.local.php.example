@@ -1,0 +1,8 @@
+<?php
+
+
+define('GOOGLE_CLIENT_ID', 'YOUR_CLIENT_ID.apps.googleusercontent.com');
+define('GOOGLE_CLIENT_SECRET', 'YOUR_CLIENT_SECRET');
+
+// Optional: override redirect URI if not using localhost
+// define('GOOGLE_REDIRECT_URI', 'http://localhost/table-tennis-system/google-callback.php');

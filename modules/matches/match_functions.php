@@ -1,0 +1,242 @@
+<?php
+/**
+ * Match Business Logic
+ */
+require_once __DIR__ . '/../../config/database.php';
+
+function matchSelectSql(): string {
+    return "SELECT m.*,
+                   COALESCE(p1.first_name, g1.first_name) AS p1_first,
+                   COALESCE(p1.last_name, g1.last_name) AS p1_last,
+                   COALESCE(p2.first_name, g2.first_name) AS p2_first,
+                   COALESCE(p2.last_name, g2.last_name) AS p2_last,
+                   COALESCE(pw.first_name, wg.first_name) AS winner_first,
+                   COALESCE(pw.last_name, wg.last_name) AS winner_last,
+                   t.name AS tournament_name";
+}
+
+function matchFromSql(): string {
+    return " FROM matches m
+            LEFT JOIN players p1 ON m.player1_id = p1.id
+            LEFT JOIN tournament_guests g1 ON m.player1_guest_id = g1.id
+            LEFT JOIN players p2 ON m.player2_id = p2.id
+            LEFT JOIN tournament_guests g2 ON m.player2_guest_id = g2.id
+            LEFT JOIN players pw ON m.winner_id = pw.id
+            LEFT JOIN tournament_guests wg ON m.winner_guest_id = wg.id
+            JOIN tournaments t ON m.tournament_id = t.id";
+}
+
+function getAllMatches(string $search = '', string $status = '', ?int $tournamentId = null): array {
+    $sql = matchSelectSql() . matchFromSql() . " WHERE 1=1";
+    $params = [];
+    if ($search) {
+        $sql .= " AND (COALESCE(p1.first_name, g1.first_name) LIKE ? OR COALESCE(p1.last_name, g1.last_name) LIKE ?
+                      OR COALESCE(p2.first_name, g2.first_name) LIKE ? OR COALESCE(p2.last_name, g2.last_name) LIKE ?)";
+        $like = "%$search%";
+        $params = array_merge($params, [$like, $like, $like, $like]);
+    }
+    if ($status) { $sql .= " AND m.status = ?"; $params[] = $status; }
+    if ($tournamentId) { $sql .= " AND m.tournament_id = ?"; $params[] = $tournamentId; }
+    $sql .= " ORDER BY m.match_date DESC, m.id DESC";
+    $stmt = db()->prepare($sql);
+    $stmt->execute($params);
+    return $stmt->fetchAll();
+}
+
+function getMatchById(int $id): ?array {
+    $stmt = db()->prepare(matchSelectSql() . matchFromSql() . " WHERE m.id = ?");
+    $stmt->execute([$id]);
+    return $stmt->fetch() ?: null;
+}
+
+function createMatch(array $data): int {
+    $stmt = db()->prepare(
+        "INSERT INTO matches (tournament_id, player1_id, player2_id, player1_guest_id, player2_guest_id, round, round_name, match_date, table_number, status)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'scheduled')"
+    );
+    $stmt->execute([
+        $data['tournament_id'],
+        $data['player1_id'] ?? null,
+        $data['player2_id'] ?? null,
+        $data['player1_guest_id'] ?? null,
+        $data['player2_guest_id'] ?? null,
+        $data['round'],
+        $data['round_name'],
+        $data['match_date'] ?: null,
+        $data['table_number'] ?? 1,
+    ]);
+    return (int) db()->lastInsertId();
+}
+
+/** @param array{type:string,id:int} $entrant */
+function createMatchFromEntrants(int $tournamentId, array $entrant1, array $entrant2, int $round, string $roundName, string $matchDate, int $tableNumber): int {
+    $data = [
+        'tournament_id' => $tournamentId,
+        'round'         => $round,
+        'round_name'    => $roundName,
+        'match_date'    => $matchDate,
+        'table_number'  => $tableNumber,
+    ];
+    if ($entrant1['type'] === 'player') {
+        $data['player1_id'] = $entrant1['id'];
+    } else {
+        $data['player1_guest_id'] = $entrant1['id'];
+    }
+    if ($entrant2['type'] === 'player') {
+        $data['player2_id'] = $entrant2['id'];
+    } else {
+        $data['player2_guest_id'] = $entrant2['id'];
+    }
+    return createMatch($data);
+}
+
+function matchParticipantKey(array $match, int $slot): string {
+    if ($slot === 1) {
+        return !empty($match['player1_id']) ? 'player:' . $match['player1_id'] : 'guest:' . $match['player1_guest_id'];
+    }
+    return !empty($match['player2_id']) ? 'player:' . $match['player2_id'] : 'guest:' . $match['player2_guest_id'];
+}
+
+function parseParticipantKey(string $key): ?array {
+    if (preg_match('/^(player|guest):(\d+)$/', $key, $m)) {
+        return ['type' => $m[1], 'id' => (int) $m[2]];
+    }
+    return null;
+}
+
+function recordMatchResult(int $matchId, int $winnerId, int $p1Score, int $p2Score): bool {
+    return recordBracketMatchResult($matchId, 'player:' . $winnerId, $p1Score, $p2Score);
+}
+
+function matchWinnerKey(array $match): ?string {
+    if (($match['status'] ?? '') !== 'completed') {
+        return null;
+    }
+    if (!empty($match['winner_id'])) {
+        return 'player:' . $match['winner_id'];
+    }
+    if (!empty($match['winner_guest_id'])) {
+        return 'guest:' . $match['winner_guest_id'];
+    }
+    return null;
+}
+
+function adjustPlayerStatsForMatchResult(string $winnerKey, string $loserKey, int $delta): void {
+    $winner = parseParticipantKey($winnerKey);
+    $loser  = parseParticipantKey($loserKey);
+    $pdo    = db();
+
+    if ($winner && $winner['type'] === 'player') {
+        if ($delta > 0) {
+            $pdo->prepare('UPDATE players SET wins = wins + 1 WHERE id = ?')->execute([$winner['id']]);
+        } else {
+            $pdo->prepare('UPDATE players SET wins = GREATEST(0, wins - 1) WHERE id = ?')->execute([$winner['id']]);
+        }
+    }
+    if ($loser && $loser['type'] === 'player') {
+        if ($delta > 0) {
+            $pdo->prepare('UPDATE players SET losses = losses + 1 WHERE id = ?')->execute([$loser['id']]);
+        } else {
+            $pdo->prepare('UPDATE players SET losses = GREATEST(0, losses - 1) WHERE id = ?')->execute([$loser['id']]);
+        }
+    }
+}
+
+function recordBracketMatchResult(int $matchId, string $winnerKey, int $p1Score, int $p2Score): bool {
+    $winner = parseParticipantKey($winnerKey);
+    if (!$winner) {
+        return false;
+    }
+
+    $match = getMatchById($matchId);
+    if (!$match) {
+        return false;
+    }
+
+    $oldWinnerKey = matchWinnerKey($match);
+    if ($oldWinnerKey) {
+        $p1Key = matchParticipantKey($match, 1);
+        $p2Key = matchParticipantKey($match, 2);
+        $oldLoserKey = ($oldWinnerKey === $p1Key) ? $p2Key : $p1Key;
+        adjustPlayerStatsForMatchResult($oldWinnerKey, $oldLoserKey, -1);
+    }
+
+    $winnerPlayerId = $winner['type'] === 'player' ? $winner['id'] : null;
+    $winnerGuestId  = $winner['type'] === 'guest' ? $winner['id'] : null;
+
+    $stmt = db()->prepare(
+        "UPDATE matches SET winner_id = ?, winner_guest_id = ?, player1_score = ?, player2_score = ?, status = 'completed' WHERE id = ?"
+    );
+    $ok = $stmt->execute([$winnerPlayerId, $winnerGuestId, $p1Score, $p2Score, $matchId]);
+
+    if ($ok) {
+        $p1Key = matchParticipantKey($match, 1);
+        $p2Key = matchParticipantKey($match, 2);
+        $loserKey = ($winnerKey === $p1Key) ? $p2Key : $p1Key;
+        adjustPlayerStatsForMatchResult($winnerKey, $loserKey, 1);
+    }
+
+    return $ok;
+}
+
+function updateMatchResult(int $matchId, array $data): bool {
+    $stmt = db()->prepare(
+        "UPDATE matches SET winner_id=?, player1_score=?, player2_score=?, status=?,
+         match_date=?, table_number=?, notes=? WHERE id=?"
+    );
+    return $stmt->execute([
+        $data['winner_id'] ?: null, $data['player1_score'], $data['player2_score'],
+        $data['status'], $data['match_date'] ?: null,
+        $data['table_number'] ?? 1, $data['notes'] ?? null, $matchId
+    ]);
+}
+
+function deleteMatch(int $id): bool {
+    return db()->prepare("DELETE FROM matches WHERE id=?")->execute([$id]);
+}
+
+function getMatchCount(): int {
+    return (int) db()->query("SELECT COUNT(*) FROM matches")->fetchColumn();
+}
+
+function getRecentMatches(int $limit = 5): array {
+    $stmt = db()->prepare(matchSelectSql() . matchFromSql() . " WHERE m.status = 'completed' ORDER BY m.updated_at DESC LIMIT ?");
+    $stmt->execute([$limit]);
+    return $stmt->fetchAll();
+}
+
+function getUpcomingMatches(int $limit = 5): array {
+    $stmt = db()->prepare(matchSelectSql() . matchFromSql() . " WHERE m.status = 'scheduled' ORDER BY m.match_date ASC LIMIT ?");
+    $stmt->execute([$limit]);
+    return $stmt->fetchAll();
+}
+
+function getTournamentMatches(int $tournamentId): array {
+    $stmt = db()->prepare(
+        matchSelectSql() . matchFromSql() . " WHERE m.tournament_id = ? ORDER BY m.round ASC, m.id ASC"
+    );
+    $stmt->execute([$tournamentId]);
+    return $stmt->fetchAll();
+}
+
+function matchWinnerIsSlot(array $match, int $slot): bool {
+    if ($match['status'] !== 'completed') {
+        return false;
+    }
+    if ($slot === 1) {
+        if (!empty($match['winner_id']) && !empty($match['player1_id'])) {
+            return (int) $match['winner_id'] === (int) $match['player1_id'];
+        }
+        if (!empty($match['winner_guest_id']) && !empty($match['player1_guest_id'])) {
+            return (int) $match['winner_guest_id'] === (int) $match['player1_guest_id'];
+        }
+    } else {
+        if (!empty($match['winner_id']) && !empty($match['player2_id'])) {
+            return (int) $match['winner_id'] === (int) $match['player2_id'];
+        }
+        if (!empty($match['winner_guest_id']) && !empty($match['player2_guest_id'])) {
+            return (int) $match['winner_guest_id'] === (int) $match['player2_guest_id'];
+        }
+    }
+    return false;
+}
