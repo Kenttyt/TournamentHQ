@@ -20,12 +20,24 @@ if (!$player) {
 
 $playerId   = (int)($player['id'] ?? 0);
 
+$stmt = db()->prepare("SELECT email FROM users WHERE id = ? LIMIT 1");
+$stmt->execute([$userId]);
+$userEmail = $stmt->fetchColumn();
+$emailMissing = empty($userEmail);
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = $_POST['action'] ?? '';
     if (in_array($action, ['join', 'leave'], true) && $playerId <= 0) {
         setFlash('danger', 'Your player profile is not set up. Please contact an admin before joining tournaments.');
         header('Location: index.php');
         exit;
+    }
+    // Check if user has email when trying to join tournament
+    if ($action === 'join' && $playerId > 0) {
+        if ($emailMissing) {
+            header('Location: profile.php');
+            exit;
+        }
     }
 }
 
@@ -69,14 +81,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $playerId > 0) {
                     $proofPath = null;
                     $proofOriginal = null;
                     if ($needsProof) {
-                        $upload = savePaymentProofUpload($tid, $playerId, $_FILES['payment_proof'] ?? []);
-                        if (!$upload['ok']) {
-                            setFlash('danger', $upload['error']);
+                        $fileProvided = (isset($_FILES['payment_proof']) && ($_FILES['payment_proof']['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_NO_FILE);
+                        $noProofChecked = isset($_POST['no_payment_proof']);
+                        
+                        if ($fileProvided) {
+                            // User provided a file - upload it
+                            $upload = savePaymentProofUpload($tid, $playerId, $_FILES['payment_proof'] ?? []);
+                            if (!$upload['ok']) {
+                                setFlash('danger', $upload['error']);
+                                header('Location: index.php');
+                                exit;
+                            }
+                            $proofPath = $upload['path'];
+                            $proofOriginal = $upload['original_name'];
+                        } elseif ($noProofChecked) {
+                            // User checked "no proof" - allow submission without proof
+                            setFlash('info', 'No payment proof was provided. The organizer will review and may follow up if needed.');
+                        } else {
+                            // No file and no checkbox - this shouldn't happen if frontend validation works
+                            setFlash('danger', 'Please upload payment proof or check the box if you don\'t have it right now.');
                             header('Location: index.php');
                             exit;
                         }
-                        $proofPath = $upload['path'];
-                        $proofOriginal = $upload['original_name'];
                     }
 
                     $guestCount = 0;
@@ -290,9 +316,11 @@ require_once __DIR__ . '/../includes/header.php';
                                                 data-tid="<?= (int)$t['id'] ?>"
                                                 data-tname="<?= e($t['name']) ?>"
                                                 data-pname="<?= e(trim($player['first_name'] . ' ' . $player['last_name'])) ?>"
+                                                data-description="<?= e($t['description'] ?? '') ?>"
                                                 data-slots="<?= (int)($t['max_players'] - $t['registered_count']) ?>"
                                                 data-fee="<?= e(formatRegistrationFee($t)) ?>"
                                                 data-requires-proof="<?= tournamentRequiresPaymentProof($t) ? '1' : '0' ?>"
+                                                data-email-missing="<?= $emailMissing ? '1' : '0' ?>"
                                             >Register Players</button>
                                         <?php endif; ?>
                                     <?php endif; ?>
@@ -414,6 +442,10 @@ require_once __DIR__ . '/../includes/header.php';
                     <p style="margin: 6px 0 0 0; font-size: 12px; color: var(--accent); font-weight: 600; display: none;" id="joinTFee"></p>
                 </div>
 
+                <div id="joinTDescriptionWrapper" style="display:none;margin-bottom:14px;padding:12px;border-radius:var(--radius-sm);background:rgba(0,212,170,0.06);border:1px solid rgba(0,212,170,0.18);">
+                    <div id="joinTDescription" style="margin:0;font-size:13px;color:var(--text-200);line-height:1.4"></div>
+                </div>
+
                 <div style="background: rgba(255, 200, 87, 0.08); border: 1px solid rgba(255, 200, 87, 0.25); border-radius: var(--radius-sm); padding: 12px 14px; margin-bottom: 18px;">
                     <p style="margin: 0; font-size: 12px; font-weight: 700; color: var(--warning);">Your profile is not included</p>
                     <p style="margin: 6px 0 0 0; font-size: 11px; color: var(--text-400); line-height: 1.45;">
@@ -444,6 +476,14 @@ require_once __DIR__ . '/../includes/header.php';
                     </p>
                     <input type="file" name="payment_proof" id="paymentProofFile" class="form-control" accept="image/jpeg,image/png,image/webp,application/pdf" style="height:auto;padding:10px">
                     <p class="text-muted text-xs" style="margin:8px 0 0">JPG, PNG, WebP, or PDF · Max 5 MB</p>
+                    
+                    <div style="margin-top:14px;padding:12px;background:rgba(255,200,87,0.08);border:1px solid rgba(255,200,87,0.2);border-radius:var(--radius-sm)">
+                        <label style="display:flex;align-items:center;gap:10px;cursor:pointer;margin:0">
+                            <input type="checkbox" id="noPaymentProofCheckbox" name="no_payment_proof" style="width:18px;height:18px;cursor:pointer">
+                            <span style="font-size:13px;color:var(--text-300);font-weight:500">I don't have payment proof right now, I'll submit it later</span>
+                        </label>
+                        <p class="text-muted text-xs" style="margin:8px 0 0">The organizer can still approve your registration and may follow up if needed.</p>
+                    </div>
                 </div>
             </div>
             <div class="modal-footer">
@@ -454,12 +494,40 @@ require_once __DIR__ . '/../includes/header.php';
     </div>
 </div>
 
+<div class="modal-overlay" id="emailUpdateModal">
+    <div class="modal" style="max-width: 420px;">
+        <div class="modal-header">
+            <div class="modal-title">Update your email</div>
+            <button class="modal-close" data-modal-close>×</button>
+        </div>
+        <div class="modal-body">
+            <p style="margin:0 0 12px; font-size:14px; color:var(--text-100);">You need to add an email address to your profile before registering for a tournament.</p>
+            <p style="margin:0; font-size:13px; color:var(--text-400); line-height:1.5;">This email lets the organizer contact you about your registration and payment status.</p>
+        </div>
+        <div class="modal-footer">
+            <a href="profile.php" class="btn btn-primary" style="font-weight:700;">Update Email</a>
+            <button type="button" class="btn btn-outline" data-modal-close>Cancel</button>
+        </div>
+    </div>
+</div>
+
 <script>
 let currentSlotsRemaining = 16;
 
-function openJoinModal(tid, tname, pname, slotsRemaining, regFee, requiresProof) {
+function openJoinModal(tid, tname, tdesc, pname, slotsRemaining, regFee, requiresProof) {
     document.getElementById('joinTId').value = tid;
     document.getElementById('joinTName').textContent = tname;
+    const descWrapper = document.getElementById('joinTDescriptionWrapper');
+    const descEl = document.getElementById('joinTDescription');
+    if (descWrapper && descEl) {
+        if (tdesc && tdesc.trim() !== '') {
+            descEl.textContent = tdesc;
+            descWrapper.style.display = 'block';
+        } else {
+            descEl.textContent = '';
+            descWrapper.style.display = 'none';
+        }
+    }
     const submitterEl = document.getElementById('joinSubmitterName');
     if (submitterEl) submitterEl.textContent = pname;
     document.getElementById('joinTSlots').textContent = 'Slots remaining: ' + slotsRemaining;
@@ -481,6 +549,10 @@ function openJoinModal(tid, tname, pname, slotsRemaining, regFee, requiresProof)
     if (proofInput) {
         proofInput.required = needsProof;
         proofInput.value = '';
+    }
+    const noProofCheckbox = document.getElementById('noPaymentProofCheckbox');
+    if (noProofCheckbox) {
+        noProofCheckbox.checked = false;
     }
     
     document.getElementById('guestsContainer').innerHTML = '';
@@ -524,11 +596,33 @@ document.getElementById('joinForm')?.addEventListener('submit', function (e) {
     }
     const proofInput = document.getElementById('paymentProofFile');
     const proofSection = document.getElementById('paymentProofSection');
-    if (!e.defaultPrevented && proofSection && proofSection.style.display !== 'none' && proofInput && !proofInput.files.length) {
+    const noProofCheckbox = document.getElementById('noPaymentProofCheckbox');
+    if (!e.defaultPrevented && proofSection && proofSection.style.display !== 'none' && proofInput && !proofInput.files.length && (!noProofCheckbox || !noProofCheckbox.checked)) {
         e.preventDefault();
-        alert('Please upload payment proof (receipt or screenshot) for the registration fee.');
+        alert('Please upload payment proof or check the box if you\'ll submit it later.');
     }
 });
+
+// Handle "no proof" checkbox to toggle file input required attribute
+(function () {
+    const noProofCheckbox = document.getElementById('noPaymentProofCheckbox');
+    const proofInput = document.getElementById('paymentProofFile');
+    
+    if (noProofCheckbox && proofInput) {
+        noProofCheckbox.addEventListener('change', function () {
+            if (this.checked) {
+                // If checkbox is checked, remove required from file input
+                proofInput.required = false;
+            } else {
+                // If unchecked, restore required if the proof section is visible
+                const proofSection = document.getElementById('paymentProofSection');
+                if (proofSection && proofSection.style.display !== 'none') {
+                    proofInput.required = true;
+                }
+            }
+        });
+    }
+})();
 
 function addGuestRow() {
     const container = document.getElementById('guestsContainer');
@@ -602,11 +696,27 @@ document.querySelectorAll('.js-view-roster-btn').forEach(function (btn) {
     });
 });
 
+function openEmailUpdateModal() {
+    const overlay = document.getElementById('emailUpdateModal');
+    if (!overlay) return;
+    if (window.TTMS && typeof TTMS.openModal === 'function') {
+        TTMS.openModal('emailUpdateModal');
+    } else {
+        overlay.classList.add('open');
+        document.body.style.overflow = 'hidden';
+    }
+}
+
 document.querySelectorAll('.js-join-tournament-btn').forEach(function (btn) {
     btn.addEventListener('click', function () {
+        if (btn.getAttribute('data-email-missing') === '1') {
+            openEmailUpdateModal();
+            return;
+        }
         openJoinModal(
             parseInt(btn.getAttribute('data-tid'), 10),
             btn.getAttribute('data-tname') || '',
+            btn.getAttribute('data-description') || '',
             btn.getAttribute('data-pname') || '',
             parseInt(btn.getAttribute('data-slots'), 10) || 0,
             btn.getAttribute('data-fee') || '',

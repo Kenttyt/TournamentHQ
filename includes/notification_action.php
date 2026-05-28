@@ -33,5 +33,16 @@ if ($action === 'mark_all_read') {
     exit;
 }
 
+if ($action === 'delete') {
+    $id = (int) ($_POST['notification_id'] ?? 0);
+    if ($id > 0 && deleteNotification($id, $userId)) {
+        echo json_encode(['ok' => true]);
+        exit;
+    }
+    http_response_code(400);
+    echo json_encode(['ok' => false]);
+    exit;
+}
+
 http_response_code(400);
 echo json_encode(['ok' => false, 'error' => 'Invalid action']);

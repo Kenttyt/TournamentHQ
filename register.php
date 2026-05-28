@@ -12,42 +12,21 @@ if (isLoggedIn()) {
     exit;
 }
 
-// Helper function to auto-generate a unique username based on first and last name
-function generateUniqueUsername(string $firstName, string $lastName): string {
-    $pdo = db();
-    $cleanFirst = preg_replace('/[^a-zA-Z0-9]/', '', strtolower($firstName));
-    $cleanLast  = preg_replace('/[^a-zA-Z0-9]/', '', strtolower($lastName));
-    
-    $base = (empty($cleanFirst) && empty($cleanLast)) ? 'player' : ($cleanFirst . $cleanLast);
-    $username = $base;
-    $counter = 1;
-    
-    $stmt = $pdo->prepare("SELECT id FROM users WHERE username = ?");
-    while (true) {
-        $stmt->execute([$username]);
-        if (!$stmt->fetch()) {
-            break; // Unique username found
-        }
-        $username = $base . $counter;
-        $counter++;
-    }
-    return $username;
-}
-
 $error = '';
 $flash = getFlash();
 $googleEnabled = isGoogleOAuthConfigured();
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $email      = trim($_POST['email'] ?? '');
     $password   = $_POST['password'] ?? '';
-    $first_name = trim($_POST['first_name'] ?? '');
-    $last_name  = trim($_POST['last_name'] ?? '');
+    $username   = trim($_POST['username'] ?? '');
+    $email      = trim($_POST['email'] ?? '');
     $gender     = $_POST['gender'] ?? 'male';
     $club       = trim($_POST['club'] ?? '');
     $nationality= trim($_POST['nationality'] ?? '');
 
-    if (!$email || !$password || !$first_name || !$last_name) {
+    if (!$password || !$username || !$email) {
         $error = 'Please fill in all required fields.';
+    } elseif (!preg_match('/^[A-Za-z]{3,30}$/', $username)) {
+        $error = 'Username must be 3-30 letters only (A-Z)';
     } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
         $error = 'Please enter a valid email address.';
     } elseif (strlen($password) < 6) {
@@ -55,26 +34,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } else {
         try {
             $pdo = db();
-            // Check if email exists
-            $stmt = $pdo->prepare("SELECT id FROM users WHERE email = ?");
-            $stmt->execute([$email]);
-            if ($stmt->fetch()) {
-                $error = 'Email is already registered.';
+            // Check if username or email exists
+            $stmt = $pdo->prepare("SELECT id, username, email FROM users WHERE username = ? OR email = ? LIMIT 1");
+            $stmt->execute([$username, $email]);
+            $existing = $stmt->fetch();
+            if ($existing) {
+                if ($existing['username'] === $username) {
+                    $error = 'Username is already taken.';
+                } else {
+                    $error = 'Email address is already registered.';
+                }
             } else {
-                // Generate a unique username automatically
-                $username = generateUniqueUsername($first_name, $last_name);
-
                 $pdo->beginTransaction();
-
-                // Insert user
+                // Insert user with username and email
                 $hashed_pw = password_hash($password, PASSWORD_DEFAULT);
                 $stmt = $pdo->prepare("INSERT INTO users (username, password, email, role, is_active) VALUES (?, ?, ?, 'player', 1)");
                 $stmt->execute([$username, $hashed_pw, $email]);
                 $userId = $pdo->lastInsertId();
 
-                // Insert player profile
+                // Insert player profile: store username as first_name and leave last_name empty
                 $stmt = $pdo->prepare("INSERT INTO players (user_id, first_name, last_name, gender, club, nationality, points, wins, losses) VALUES (?, ?, ?, ?, ?, ?, 0, 0, 0)");
-                $stmt->execute([$userId, $first_name, $last_name, $gender, $club ?: null, $nationality ?: null]);
+                $stmt->execute([$userId, $username, '', $gender, $club ?: null, $nationality ?: null]);
                 $playerId = $pdo->lastInsertId();
 
                 // Insert initial rankings record
@@ -87,13 +67,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $_SESSION['user_id']  = $userId;
                 $_SESSION['username'] = $username;
                 $_SESSION['role']     = 'player';
-                $_SESSION['email']    = $email;
 
                 header('Location: ' . getDashboardUrl('player'));
                 exit;
             }
         } catch (PDOException $e) {
-            if ($pdo->inTransaction()) {
+            if (isset($pdo) && $pdo->inTransaction()) {
                 $pdo->rollBack();
             }
             $error = 'Registration failed: ' . $e->getMessage();
@@ -319,7 +298,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             transition: color 0.25s ease;
         }
 
-        .input-wrap:focus-within .input-icon {
+        /* Ensure SVG icons injected by Lucide are styled like the original .input-icon */
+        .input-wrap svg[data-lucide],
+        .input-wrap .input-icon {
+            position: absolute;
+            left: 14px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 16px;
+            height: 16px;
+            color: var(--text-400);
+            pointer-events: none;
+            transition: color 0.25s ease;
+        }
+
+        .input-wrap:focus-within .input-icon,
+        .input-wrap:focus-within svg[data-lucide] {
             color: var(--primary-light);
         }
 
@@ -480,37 +474,36 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <?php endif; ?>
 
                 <form method="POST" action="" id="registerForm">
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label class="form-label" for="first_name">First Name *</label>
-                            <div class="input-wrap">
-                                <i data-lucide="text" class="input-icon"></i>
-                                <input type="text" id="first_name" name="first_name" class="form-control"  required>
-                            </div>
+                    <div class="form-group">
+                        <label class="form-label" for="username">Username *</label>
+                        <div class="input-wrap">
+                            <svg data-lucide="user" class="input-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                                <circle cx="12" cy="7" r="4"></circle>
+                            </svg>
+                            <input type="text" id="username" name="username" class="form-control" placeholder="Choose a username" required minlength="3" maxlength="30" pattern="[A-Za-z]{3,30}">
                         </div>
-                        <div class="form-group">
-                            <label class="form-label" for="last_name">Last Name *</label>
-                            <div class="input-wrap">
-                                <i data-lucide="text" class="input-icon"></i>
-                                <input type="text" id="last_name" name="last_name" class="form-control"  required>
-                            </div>
-                        </div>
+                        <p class="text-xs text-muted" style="margin-top:6px;">3-30 letters only (A–Z).</p>
                     </div>
 
                     <div class="form-group">
-                        <label class="form-label" for="email">Email Address *</label>
+                        <label class="form-label" for="email">Email *</label>
                         <div class="input-wrap">
-                            <i data-lucide="mail" class="input-icon"></i>
-                            <input type="email" id="email" name="email" class="form-control" placeholder="john@example.com" required>
+                            <svg data-lucide="mail" class="input-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <rect x="2" y="4" width="20" height="16" rx="2"></rect>
+                                <path d="M22 4L12 13 2 4"></path>
+                            </svg>
+                            <input type="email" id="email" name="email" class="form-control" placeholder="your@email.com" required>
                         </div>
                     </div>
-
-
 
                     <div class="form-group">
                         <label class="form-label" for="password">Password *</label>
                         <div class="input-wrap">
-                            <i data-lucide="lock" class="input-icon"></i>
+                            <svg data-lucide="lock" class="input-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <rect x="3" y="11" width="18" height="11" rx="2"></rect>
+                                <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                            </svg>
                             <input type="password" id="password" name="password" class="form-control" placeholder="Min. 6 characters" minlength="6" required>
                             <button type="button" class="show-pw" id="togglePw" title="Show/hide password">
                                 <i data-lucide="eye" id="pwIcon"></i>
@@ -530,7 +523,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         <div class="form-group">
                             <label class="form-label" for="nationality">Place</label>
                             <div class="input-wrap">
-                                <i data-lucide="map-pin" class="input-icon"></i>
+                                <svg data-lucide="map-pin" class="input-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M21 10c0 6-9 13-9 13S3 16 3 10A9 9 0 0 1 21 10z"></path>
+                                    <circle cx="12" cy="10" r="3"></circle>
+                                </svg>
                                 <input type="text" id="nationality" name="nationality" class="form-control" placeholder="e.g. Manila, Philippines">
                             </div>
                         </div>
@@ -539,7 +535,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     <div class="form-group">
                         <label class="form-label" for="club">Club (Optional)</label>
                         <div class="input-wrap">
-                            <i data-lucide="shield" class="input-icon"></i>
+                            <svg data-lucide="shield" class="input-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+                            </svg>
                             <input type="text" id="club" name="club" class="form-control" placeholder="e.g. Smashers Club">
                         </div>
                     </div>
@@ -601,6 +599,33 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             if (typeof lucide !== 'undefined') {
                 lucide.createIcons();
+            }
+        });
+    }
+
+    const registerForm = document.getElementById('registerForm');
+    const usernameInput = document.getElementById('username');
+    const pwInput = document.getElementById('password');
+    if (registerForm && usernameInput && pwInput) {
+        registerForm.addEventListener('submit', (event) => {
+            const usernameVal = usernameInput.value.trim();
+            if (!usernameVal) {
+                event.preventDefault();
+                alert('Please enter a username.');
+                usernameInput.focus();
+                return;
+            }
+            if (!/^[A-Za-z]{3,30}$/.test(usernameVal)) {
+                event.preventDefault();
+                alert('Username must be 3-30 letters only (A–Z).');
+                usernameInput.focus();
+                return;
+            }
+            if (!pwInput.value || pwInput.value.length < 6) {
+                event.preventDefault();
+                alert('Please provide a password with at least 6 characters.');
+                pwInput.focus();
+                return;
             }
         });
     }

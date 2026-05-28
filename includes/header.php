@@ -91,7 +91,7 @@ $currentPage = basename($_SERVER['PHP_SELF']);
                 <span class="user-email"><?= e($user['email']) ?></span>
             </div>
         </div>
-        <a href="/table-tennis-system/includes/logout.php" class="logout-btn" title="Logout">
+        <a href="/table-tennis-system/includes/logout.php" class="logout-btn" title="Logout" onclick="return confirm('Are you sure you want to log out?');">
             <i data-lucide="log-out"></i>
         </a>
     </div>
@@ -105,6 +105,18 @@ $currentPage = basename($_SERVER['PHP_SELF']);
             <i data-lucide="menu"></i>
         </button>
         <div class="topbar-title"><?= isset($pageTitle) ? e($pageTitle) : 'Dashboard' ?></div>
+        <?php if ($user && in_array($role, ['organizer', 'player'], true)): ?>
+        <div class="topbar-right">
+            <a href="/table-tennis-system/<?= $role ?>/notifications.php" class="notification-wrap" title="Notifications">
+                <button type="button" class="notification-bell" aria-label="Open notifications">
+                    <i data-lucide="bell"></i>
+                    <?php if ($notificationCount > 0): ?>
+                    <span class="notification-badge"><?= (int) $notificationCount > 9 ? '9+' : (int) $notificationCount ?></span>
+                    <?php endif; ?>
+                </button>
+            </a>
+        </div>
+        <?php endif; ?>
     </header>
 
     <!-- Flash Messages -->

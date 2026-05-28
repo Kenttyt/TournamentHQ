@@ -348,6 +348,12 @@ function markAllNotificationsRead(int $userId): bool {
     )->execute([$userId]);
 }
 
+function deleteNotification(int $notificationId, int $userId): bool {
+    $stmt = db()->prepare("DELETE FROM notifications WHERE id = ? AND user_id = ?");
+    $stmt->execute([$notificationId, $userId]);
+    return $stmt->rowCount() > 0;
+}
+
 function notifyAllPlayersNewTournament(int $tournamentId): void {
     require_once __DIR__ . '/../tournaments/tournament_functions.php';
     $t = getTournamentById($tournamentId);

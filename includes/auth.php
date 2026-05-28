@@ -43,7 +43,7 @@ function requireLogin(string $redirectTo = '/table-tennis-system/index.php'): vo
 /**
  * Require a specific role; redirect to dashboard if insufficient
  */
-function requireRole(string|array $roles): void {
+function requireRole($roles) {
     requireLogin();
     $current = $_SESSION['role'] ?? '';
     $allowed = is_array($roles) ? $roles : [$roles];
@@ -57,13 +57,17 @@ function requireRole(string|array $roles): void {
 /**
  * Get dashboard URL by role
  */
-function getDashboardUrl(string $role): string {
-    return match($role) {
-        'admin'     => '/table-tennis-system/admin/index.php',
-        'organizer' => '/table-tennis-system/organizer/index.php',
-        'player'    => '/table-tennis-system/player/index.php',
-        default     => '/table-tennis-system/index.php',
-    };
+function getDashboardUrl($role) {
+    switch ($role) {
+        case 'admin':
+            return '/table-tennis-system/admin/index.php';
+        case 'organizer':
+            return '/table-tennis-system/organizer/index.php';
+        case 'player':
+            return '/table-tennis-system/player/index.php';
+        default:
+            return '/table-tennis-system/index.php';
+    }
 }
 
 /**
@@ -108,7 +112,7 @@ function logoutUser(): void {
 /**
  * Sanitize output for HTML display
  */
-function e(mixed $val): string {
+function e($val) {
     return htmlspecialchars((string)$val, ENT_QUOTES | ENT_HTML5, 'UTF-8');
 }
 

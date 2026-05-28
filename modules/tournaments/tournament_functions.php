@@ -42,6 +42,11 @@ function getTournamentById(int $id): ?array {
     return $stmt->fetch() ?: null;
 }
 
+function isTournamentEditable(int $tournamentId): bool {
+    $t = getTournamentById($tournamentId);
+    return $t !== null && ($t['status'] ?? '') !== 'completed';
+}
+
 function getTournamentPlayers(int $tournamentId, ?string $registrationStatus = 'approved'): array {
     $sql = "SELECT p.*, tp.seed, tp.registered_at, tp.registration_status,
                 p.first_name, p.last_name, p.club, p.nationality
@@ -225,7 +230,37 @@ function registerPlayerInTournament(int $tournamentId, int $playerId, ?int $seed
 }
 
 function removePlayerFromTournament(int $tournamentId, int $playerId): bool {
+    if (!isTournamentEditable($tournamentId)) {
+        return false;
+    }
     return db()->prepare("DELETE FROM tournament_players WHERE tournament_id=? AND player_id=?")->execute([$tournamentId, $playerId]);
+}
+
+function deleteTournamentGuest(int $guestId, int $tournamentId): bool {
+    require_once __DIR__ . '/../uploads/payment_proof.php';
+    $stmt = db()->prepare(
+        "SELECT payment_proof_path FROM tournament_guests WHERE id = ? AND tournament_id = ?"
+    );
+    $stmt->execute([$guestId, $tournamentId]);
+    $guest = $stmt->fetch();
+    $ok = db()->prepare("DELETE FROM tournament_guests WHERE id = ? AND tournament_id = ?")->execute([$guestId, $tournamentId]);
+    if ($ok && $guest && !empty($guest['payment_proof_path'])) {
+        deletePaymentProofFile($guest['payment_proof_path']);
+    }
+    return $ok;
+}
+
+function removeTournamentRegistration(int $tournamentId, string $regType, int $regId): bool {
+    if (!isTournamentEditable($tournamentId)) {
+        return false;
+    }
+    if ($regType === 'player') {
+        return removePlayerFromTournament($tournamentId, $regId);
+    }
+    if ($regType === 'guest') {
+        return deleteTournamentGuest($regId, $tournamentId);
+    }
+    return false;
 }
 
 function getOrganizerTournaments(int $organizerId): array {
@@ -310,6 +345,17 @@ function addTournamentGuest(
         $tournamentId, $registeredByPlayerId, $firstName, $lastName, $status,
         $paymentProofPath, $paymentProofOriginalName,
     ]);
+}
+
+function isTournamentGuestRegistered(int $tournamentId, string $firstName, string $lastName): bool {
+    $stmt = db()->prepare(
+        "SELECT 1 FROM tournament_guests
+         WHERE tournament_id = ? AND first_name = ? AND last_name = ?
+         AND registration_status IN ('pending','approved')
+         LIMIT 1"
+    );
+    $stmt->execute([$tournamentId, $firstName, $lastName]);
+    return (bool) $stmt->fetchColumn();
 }
 
 function getSubmitterTournamentGuests(int $tournamentId, int $submitterPlayerId): array {
@@ -519,6 +565,9 @@ function rejectTournamentRegistration(int $tournamentId, string $regType, int $r
 }
 
 function removePlayerGuestsFromTournament(int $tournamentId, int $registeredByPlayerId): bool {
+    if (!isTournamentEditable($tournamentId)) {
+        return false;
+    }
     require_once __DIR__ . '/../uploads/payment_proof.php';
     $stmt = db()->prepare(
         "SELECT DISTINCT payment_proof_path FROM tournament_guests
@@ -541,6 +590,7 @@ function getTournamentEntrants(int $tournamentId): array {
             'id'         => (int) $p['id'],
             'first_name' => $p['first_name'],
             'last_name'  => $p['last_name'],
+            'club'       => $p['club'] ?? '',
             'seed'       => $p['seed'] ?? null,
             'is_guest'   => false,
         ];
@@ -551,9 +601,74 @@ function getTournamentEntrants(int $tournamentId): array {
             'id'         => (int) $g['id'],
             'first_name' => $g['first_name'],
             'last_name'  => $g['last_name'],
+            'club'       => $g['club'] ?? '',
             'seed'       => null,
             'is_guest'   => true,
         ];
     }
     return $entrants;
+}
+
+/**
+ * Get recently approved guest registrations that have no payment proof uploaded.
+ * Used for organizer history views.
+ */
+function getApprovedGuestsWithoutPaymentProof(int $limit = 6): array {
+    $stmt = db()->prepare(
+        "SELECT tg.*, p.first_name AS submitter_first, p.last_name AS submitter_last, t.name AS tournament_name
+         FROM tournament_guests tg
+         LEFT JOIN players p ON tg.registered_by_player_id = p.id
+         LEFT JOIN tournaments t ON tg.tournament_id = t.id
+         WHERE tg.registration_status = 'approved' AND (tg.payment_proof_path IS NULL OR tg.payment_proof_path = '')
+         ORDER BY tg.created_at DESC
+         LIMIT ?"
+    );
+    $stmt->execute([$limit]);
+    return $stmt->fetchAll();
+}
+
+/**
+ * Get recent approved registrations (players and guests) with tournament info.
+ * Returns unified rows with fields: type ('player'|'guest'), entity_id, first_name, last_name,
+ * tournament_id, tournament_name, submitter_first, submitter_last, ts
+ */
+function getRecentApprovedRegistrations(int $limit = 8): array {
+    return getApprovedRegistrationHistory($limit);
+}
+
+function getApprovedRegistrationHistory(?int $limit = null): array {
+    $sql = "(
+        SELECT tp.player_id AS entity_id, 'player' AS type, p.first_name, p.last_name,
+               tp.tournament_id, t.name AS tournament_name,
+               NULL AS submitter_first, NULL AS submitter_last,
+               NULL AS payment_proof_path,
+               tp.registered_at AS ts
+        FROM tournament_players tp
+        JOIN players p ON tp.player_id = p.id
+        JOIN tournaments t ON tp.tournament_id = t.id
+        WHERE tp.registration_status = 'approved'
+    ) UNION ALL (
+        SELECT tg.id AS entity_id, 'guest' AS type, tg.first_name, tg.last_name,
+               tg.tournament_id, t.name AS tournament_name,
+               sp.first_name AS submitter_first, sp.last_name AS submitter_last,
+               tg.payment_proof_path,
+               tg.created_at AS ts
+        FROM tournament_guests tg
+        LEFT JOIN players sp ON tg.registered_by_player_id = sp.id
+        JOIN tournaments t ON tg.tournament_id = t.id
+        WHERE tg.registration_status = 'approved'
+    )
+    ORDER BY ts DESC";
+
+    if ($limit !== null) {
+        $sql .= "\n    LIMIT ?";
+    }
+
+    $stmt = db()->prepare($sql);
+    if ($limit !== null) {
+        $stmt->execute([$limit]);
+    } else {
+        $stmt->execute();
+    }
+    return $stmt->fetchAll();
 }

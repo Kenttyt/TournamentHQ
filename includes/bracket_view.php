@@ -2,17 +2,166 @@
 /** @var array $bracketGroups */
 /** @var int $tid */
 /** @var string $recordResultUrl */
+
 if (empty($bracketGroups)): ?>
     <div class="empty-state" style="padding: 40px;">
         <div class="empty-icon">🏓</div>
         <h3>No bracket yet</h3>
         <p>Select a tournament, choose <strong>players per group</strong>, then click <strong>Generate Bracket</strong>.</p>
     </div>
-<?php else: ?>
-    <div class="bracket-container">
-        <?php foreach ($bracketGroups as $group): ?>
-            <div class="bracket-round">
-                <div class="bracket-round-label"><?= e($group['label']) ?></div>
+<?php else: 
+    // Separate group stages from knockout stages
+    $groupStages = [];
+    $knockoutStages = [];
+    foreach ($bracketGroups as $group) {
+        if (preg_match('/^Group [A-Z]/i', $group['label'])) {
+            $groupStages[] = $group;
+        } else {
+            $knockoutStages[] = $group;
+        }
+    }
+
+    $viewPhase = $showOnlyPhase ?? 'all';
+
+    // Load participant seeds for seed badge display
+    global $participantSeeds;
+    $participantSeeds = [];
+    if (!empty($tid)) {
+        require_once __DIR__ . '/../modules/tournaments/tournament_functions.php';
+        $entrants = getTournamentEntrants($tid);
+        foreach ($entrants as $e) {
+            $key = $e['type'] . ':' . $e['id'];
+            $participantSeeds[$key] = $e['seed'];
+        }
+    }
+
+    // Helper function to render a bracket column/round
+    if (!function_exists('renderBracketRoundColumn')) {
+        function renderBracketRoundColumn(array $group, ?string $recordResultUrl, string $extraClass = '') {
+            global $koMatchNumber;
+            global $participantSeeds;
+            $isGroupRound = preg_match('/^Group [A-Z]/i', $group['label']);
+            
+            // Calculate standings dynamically for this group
+            $standings = [];
+            foreach ($group['matches'] as $m) {
+                $p1Key = matchParticipantKey($m, 1);
+                $p2Key = matchParticipantKey($m, 2);
+                $p1Name = trim($m['p1_first'] . ' ' . $m['p1_last']);
+                $p2Name = trim($m['p2_first'] . ' ' . $m['p2_last']);
+                
+                if (!isset($standings[$p1Key])) {
+                    $standings[$p1Key] = [
+                        'name' => $p1Name,
+                        'played' => 0,
+                        'wins' => 0,
+                        'losses' => 0,
+                        'sets_won' => 0,
+                        'sets_lost' => 0
+                    ];
+                }
+                if (!isset($standings[$p2Key])) {
+                    $standings[$p2Key] = [
+                        'name' => $p2Name,
+                        'played' => 0,
+                        'wins' => 0,
+                        'losses' => 0,
+                        'sets_won' => 0,
+                        'sets_lost' => 0
+                    ];
+                }
+                
+                if ($m['status'] === 'completed') {
+                    $standings[$p1Key]['played']++;
+                    $standings[$p2Key]['played']++;
+                    
+                    $p1Score = (int)$m['player1_score'];
+                    $p2Score = (int)$m['player2_score'];
+                    
+                    $standings[$p1Key]['sets_won'] += $p1Score;
+                    $standings[$p1Key]['sets_lost'] += $p2Score;
+                    
+                    $standings[$p2Key]['sets_won'] += $p2Score;
+                    $standings[$p2Key]['sets_lost'] += $p1Score;
+                    
+                    if (matchWinnerIsSlot($m, 1)) {
+                        $standings[$p1Key]['wins']++;
+                        $standings[$p2Key]['losses']++;
+                    } elseif (matchWinnerIsSlot($m, 2)) {
+                        $standings[$p2Key]['wins']++;
+                        $standings[$p1Key]['losses']++;
+                    }
+                }
+            }
+            
+            // Sort standings: Wins DESC, Sets Diff DESC, Sets Won DESC
+            uasort($standings, function($a, $b) {
+                if ($b['wins'] !== $a['wins']) {
+                    return $b['wins'] <=> $a['wins'];
+                }
+                $aDiff = $a['sets_won'] - $a['sets_lost'];
+                $bDiff = $b['sets_won'] - $b['sets_lost'];
+                if ($bDiff !== $aDiff) {
+                    return $bDiff <=> $aDiff;
+                }
+                return $b['sets_won'] <=> $a['sets_won'];
+            });
+            ?>
+            <div class="bracket-round <?= $isGroupRound ? 'group-round' : '' ?> <?= e($extraClass) ?>">
+                <div class="bracket-round-label" style="font-size: 13px; font-weight: 700; margin-bottom: 4px; color: var(--text-100);"><?= e($group['label']) ?></div>
+                
+                <?php if ($isGroupRound): ?>
+                    <!-- Beautiful, compact Group Standings table (List of Players) -->
+                    <div class="group-standings" style="margin-bottom: 16px; background: var(--bg-700); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 10px;">
+                        <div style="font-size: 11px; font-weight: 600; text-transform: uppercase; color: var(--text-300); margin-bottom: 6px; display: flex; align-items: center; justify-content: space-between;">
+                            <span>Standings</span>
+                            <span style="font-size: 9px; color: var(--text-400); text-transform: none;">Sorted by Wins</span>
+                        </div>
+                        <table class="group-standings-table" style="width: 100%; border-collapse: collapse; font-size: 11px; text-align: left;">
+                            <thead>
+                                <tr style="border-bottom: 1px solid var(--border); color: var(--text-400); font-size: 10px;">
+                                    <th style="text-align: center; width: 24px;">#</th>
+                                    <th>Player</th>
+                                    <th style="text-align: center; width: 20px;">P</th>
+                                    <th style="text-align: center; width: 20px;">W</th>
+                                    <th style="text-align: center; width: 20px;">L</th>
+                                    <th style="text-align: center; width: 36px;">Sets</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php 
+                                $rank = 1;
+                                foreach ($standings as $playerKey => $stats): 
+                                    $isTop = $rank <= 2; // top 2 typically qualify
+                                ?>
+                                    <tr style="border-bottom: 1px solid rgba(255,255,255,0.03); <?= $isTop ? 'color: var(--text-100);' : 'color: var(--text-300);' ?>">
+                                        <td style="text-align: center; padding: 4px 0;">
+                                            <span class="rank-badge <?= $rank === 1 ? 'rank-1' : ($rank === 2 ? 'rank-2' : 'rank-other') ?>" style="width: 16px; height: 16px; font-size: 9px; display: inline-flex; line-height: 16px;">
+                                                <?= $rank ?>
+                                            </span>
+                                        </td>
+                                        <td style="font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 110px;" title="<?= e($stats['name']) ?>">
+                                            <?= e($stats['name']) ?>
+                                        </td>
+                                        <td style="text-align: center; color: var(--text-400);"><?= $stats['played'] ?></td>
+                                        <td style="text-align: center; font-weight: 650; color: var(--success);"><?= $stats['wins'] ?></td>
+                                        <td style="text-align: center; color: var(--danger);"><?= $stats['losses'] ?></td>
+                                        <td style="text-align: center; font-size: 10px; color: var(--text-400);">
+                                            <?= $stats['sets_won'] ?>:<?= $stats['sets_lost'] ?>
+                                        </td>
+                                    </tr>
+                                <?php 
+                                $rank++;
+                                endforeach; 
+                                ?>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div style="font-size: 10px; font-weight: 600; text-transform: uppercase; color: var(--text-400); margin-bottom: 4px; padding-left: 4px;">Matches</div>
+                <?php endif; ?>
+
+                <?php if ($isGroupRound): ?><div class="group-match-grid"><?php endif; ?>
                 <?php foreach ($group['matches'] as $m):
                     $p1Win = matchWinnerIsSlot($m, 1);
                     $p2Win = matchWinnerIsSlot($m, 2);
@@ -26,28 +175,100 @@ if (empty($bracketGroups)): ?>
                             $winnerKey = 'guest:' . (int) $m['winner_guest_id'];
                         }
                     }
+
+                    $p1Seed = $participantSeeds[$p1Key] ?? null;
+                    $p2Seed = $participantSeeds[$p2Key] ?? null;
+                    
+                    $p1Name = trim($m['p1_first'] . ' ' . $m['p1_last']);
+                    $p2Name = trim($m['p2_first'] . ' ' . $m['p2_last']);
+                    
+                    $matchNoText = '';
+                    if (!$isGroupRound && isset($koMatchNumber)) {
+                        $matchNoText = $koMatchNumber;
+                        $koMatchNumber++;
+                    }
                 ?>
+                    <?php
+                    // Detect a bye match: completed but one side has no player
+                    $isByeMatch = $m['status'] === 'completed'
+                        && !$isGroupRound
+                        && ($p1Name === '' || $p2Name === '');
+                    ?>
                     <div class="bracket-match">
-                        <div class="bracket-player <?= $p1Win ? 'winner' : ($p2Win ? 'loser' : '') ?>">
-                            <span><?= e($m['p1_first'] . ' ' . $m['p1_last']) ?></span>
-                            <?php if ($m['status'] === 'completed'): ?>
-                                <span class="bracket-score"><?= (int) $m['player1_score'] ?></span>
+                        <?php if ($matchNoText !== ''): ?>
+                            <span class="match-num-badge" style="position: absolute; left: -29px; top: 29px; width: 18px; height: 18px; display: inline-flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; color: var(--text-300); background: var(--bg-800); border: 1px solid var(--border); border-radius: 50%; z-index: 11;"><?= $matchNoText ?></span>
+                        <?php endif; ?>
+
+                        <div class="bracket-player <?= $p1Win ? 'winner' : ($p2Win ? 'loser' : '') ?>" style="padding-left: 0; position: relative;">
+                            <span style="display: flex; align-items: center; width: 100%;">
+                                <span class="player-seed-badge" style="background: rgba(255,255,255,0.05); border-right: 1px solid var(--border); color: var(--text-400); width: 26px; height: 38px; display: inline-flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; margin-right: 10px; border-top-left-radius: inherit; border-bottom-left-radius: inherit;"><?= $p1Seed !== null ? $p1Seed : '—' ?></span>
+                                <span style="flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 12px; padding-right: 6px;" title="<?= e($p1Name) ?>">
+                                    <?php if ($p1Name !== ''): ?>
+                                        <?= e($p1Name) ?>
+                                    <?php else: ?>
+                                        <span style="color: var(--text-400); font-style: italic; opacity: 0.65;">TBD</span>
+                                    <?php endif; ?>
+                                </span>
+                                <?php if ($extraClass === 'k-round-1' && $p1Name !== '' && !$isByeMatch && $m['status'] === 'scheduled'): ?>
+                                    <button type="button" class="js-swap-slot-btn" 
+                                            data-match-id="<?= (int) $m['id'] ?>" 
+                                            data-slot="1" 
+                                            data-player-name="<?= e($p1Name) ?>" 
+                                            style="background: none; border: none; color: var(--accent); cursor: pointer; padding: 2px 8px; font-size: 13px; font-weight: 700; margin-left: auto; display: inline-flex; align-items: center; transition: transform 0.2s;"
+                                            title="Swap Player position"
+                                            onmouseover="this.style.transform='scale(1.25)'"
+                                            onmouseout="this.style.transform='scale(1)'">
+                                        ⇄
+                                    </button>
+                                <?php endif; ?>
+                            </span>
+                            <?php if ($m['status'] === 'completed' && !$isByeMatch): ?>
+                                <span class="bracket-score" style="margin-right: 12px;"><?= (int) $m['player1_score'] ?></span>
                             <?php endif; ?>
                         </div>
-                        <div class="bracket-player <?= $p2Win ? 'winner' : ($p1Win ? 'loser' : '') ?>">
-                            <span><?= e($m['p2_first'] . ' ' . $m['p2_last']) ?></span>
-                            <?php if ($m['status'] === 'completed'): ?>
-                                <span class="bracket-score"><?= (int) $m['player2_score'] ?></span>
+                        <div class="bracket-player <?= $p2Win ? 'winner' : ($p1Win ? 'loser' : '') ?>" style="padding-left: 0; position: relative;">
+                            <span style="display: flex; align-items: center; width: 100%;">
+                                <span class="player-seed-badge" style="background: rgba(255,255,255,0.05); border-right: 1px solid var(--border); color: var(--text-400); width: 26px; height: 38px; display: inline-flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; margin-right: 10px; border-top-left-radius: inherit; border-bottom-left-radius: inherit;"><?= $p2Seed !== null ? $p2Seed : '—' ?></span>
+                                <span style="flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 12px; padding-right: 6px;" title="<?= e($p2Name) ?>">
+                                    <?php if ($isByeMatch && $p2Name === ''): ?>
+                                        <span style="color: var(--accent); font-size: 10px; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase; opacity: 0.85;">BYE</span>
+                                    <?php elseif ($p2Name !== ''): ?>
+                                        <?= e($p2Name) ?>
+                                    <?php else: ?>
+                                        <span style="color: var(--text-400); font-style: italic; opacity: 0.65;">TBD</span>
+                                    <?php endif; ?>
+                                </span>
+                                <?php if ($extraClass === 'k-round-1' && $p2Name !== '' && !$isByeMatch && $m['status'] === 'scheduled'): ?>
+                                    <button type="button" class="js-swap-slot-btn" 
+                                            data-match-id="<?= (int) $m['id'] ?>" 
+                                            data-slot="2" 
+                                            data-player-name="<?= e($p2Name) ?>" 
+                                            style="background: none; border: none; color: var(--accent); cursor: pointer; padding: 2px 8px; font-size: 13px; font-weight: 700; margin-left: auto; display: inline-flex; align-items: center; transition: transform 0.2s;"
+                                            title="Swap Player position"
+                                            onmouseover="this.style.transform='scale(1.25)'"
+                                            onmouseout="this.style.transform='scale(1)'">
+                                        ⇄
+                                    </button>
+                                <?php endif; ?>
+                            </span>
+                            <?php if ($m['status'] === 'completed' && !$isByeMatch): ?>
+                                <span class="bracket-score" style="margin-right: 12px;"><?= (int) $m['player2_score'] ?></span>
                             <?php endif; ?>
                         </div>
-                        <?php if (!empty($recordResultUrl)): ?>
+                        <?php if ($isByeMatch): ?>
+                            <div style="padding: 6px 12px; border-top: 1px solid var(--border); text-align: center;">
+                                <span style="font-size: 10px; font-weight: 700; color: var(--accent); text-transform: uppercase; letter-spacing: 0.5px; opacity: 0.8;">
+                                    ✓ Walkover — Auto Advanced
+                                </span>
+                            </div>
+                        <?php elseif (!empty($recordResultUrl) && $p1Name !== '' && $p2Name !== ''): ?>
                             <div style="padding: 8px 12px; border-top: 1px solid var(--border); text-align: center;">
                                 <button type="button" class="btn btn-sm js-bracket-result-btn <?= $m['status'] === 'completed' ? 'btn-outline' : 'btn-accent' ?>"
                                     data-match-id="<?= (int) $m['id'] ?>"
                                     data-p1-key="<?= e($p1Key) ?>"
                                     data-p2-key="<?= e($p2Key) ?>"
-                                    data-p1-name="<?= e($m['p1_first'] . ' ' . $m['p1_last']) ?>"
-                                    data-p2-name="<?= e($m['p2_first'] . ' ' . $m['p2_last']) ?>"
+                                    data-p1-name="<?= e($p1Name) ?>"
+                                    data-p2-name="<?= e($p2Name) ?>"
                                     data-p1-sets="<?= (int) $m['player1_score'] ?>"
                                     data-p2-sets="<?= (int) $m['player2_score'] ?>"
                                     data-winner-key="<?= e($winnerKey) ?>"
@@ -58,7 +279,372 @@ if (empty($bracketGroups)): ?>
                         <?php endif; ?>
                     </div>
                 <?php endforeach; ?>
+                <?php if ($isGroupRound): ?></div><?php endif; ?>
             </div>
-        <?php endforeach; ?>
+            <?php
+        }
+    }
+    ?>
+
+    <style>
+        .bracket-round {
+            min-width: 280px !important;
+        }
+        
+        .bracket-round.group-round {
+            min-width: auto;
+            justify-content: flex-start !important;
+            gap: 12px !important;
+        }
+
+        .group-standings-table th, 
+        .group-standings-table td {
+            padding: 6px 4px;
+            vertical-align: middle;
+        }
+
+        .group-match-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 12px;
+            width: 100%;
+            overflow-x: auto;
+            padding-bottom: 8px;
+            align-content: start;
+            justify-items: stretch;
+        }
+
+        @media (max-width: 640px) {
+            .group-match-grid {
+                grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+                gap: 8px;
+            }
+        }
+
+        .group-match-grid .bracket-match {
+            min-width: auto !important;
+            width: 100%;
+        }
+
+        .bracket-player span[style*="white-space: nowrap"] {
+            max-width: 180px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        @media (max-width: 640px) {
+            .bracket-player span[style*="white-space: nowrap"] {
+                max-width: none;
+                white-space: normal;
+                overflow: visible;
+                text-overflow: unset;
+                word-break: break-word;
+                line-height: 1.2;
+            }
+        }
+
+        /* =============================================
+           Knockout Stage Bracket Tree – Layout Only
+           Lines are drawn by JavaScript below.
+           ============================================= */
+        .knockout-bracket-tree {
+            display: flex;
+            flex-direction: row;
+            gap: 50px;
+            padding: 40px 20px 30px;
+            overflow-x: auto;
+            position: relative;
+            align-items: stretch;
+        }
+        .knockout-bracket-tree .bracket-round {
+            display: flex;
+            flex-direction: column;
+            justify-content: space-around;
+            min-width: 240px !important;
+            position: relative;
+        }
+        .knockout-bracket-tree .bracket-round .bracket-round-label {
+            position: absolute;
+            top: -28px;
+            left: 0;
+            right: 0;
+        }
+
+        .knockout-bracket-tree .bracket-player {
+            height: 38px !important;
+            box-sizing: border-box;
+        }
+
+        .knockout-bracket-tree .bracket-match {
+            position: relative;
+            z-index: 2;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+            overflow: visible !important;
+            border: 1px solid rgba(255,255,255,0.08);
+        }
+
+        .knockout-bracket-tree .bracket-match .bracket-player:first-of-type {
+            border-top-left-radius: var(--radius-sm);
+            border-top-right-radius: var(--radius-sm);
+        }
+        .knockout-bracket-tree .bracket-match .bracket-player:last-of-type {
+            border-bottom-left-radius: var(--radius-sm);
+            border-bottom-right-radius: var(--radius-sm);
+        }
+
+        /* Connector lines created by JS */
+        .ko-line {
+            position: absolute;
+            pointer-events: none;
+            z-index: 1;
+        }
+    </style>
+
+    <!-- Phase 1: Group Stage Brackets -->
+    <?php if (($viewPhase === 'all' || $viewPhase === 'group') && !empty($groupStages)): ?>
+        <div style="font-size: 13px; font-weight: 700; text-transform: uppercase; color: var(--text-300); margin-bottom: 12px; padding-left: 4px; display: flex; align-items: center; gap: 8px;">
+            <span>🟢 Phase 1: Group Stage Standings & Matches</span>
+        </div>
+        <div class="bracket-container" style="margin-bottom: 40px; border-bottom: 1px dashed var(--border); padding-bottom: 24px; align-items: flex-start;">
+            <?php foreach ($groupStages as $group) {
+                renderBracketRoundColumn($group, $recordResultUrl);
+            } ?>
+        </div>
+    <?php endif; ?>
+
+    <!-- Phase 2: Knockout Stage Brackets -->
+    <?php
+    // Generate a unique ID per include so two includes on the same page don't clash
+    $koTreeId = 'koBracket_' . substr(md5(uniqid('', true)), 0, 8);
+    if (($viewPhase === 'all' || $viewPhase === 'knockout') && !empty($knockoutStages)): ?>
+        <div style="font-size: 13px; font-weight: 700; text-transform: uppercase; color: var(--text-300); margin-bottom: 12px; padding-left: 4px; display: flex; align-items: center; gap: 8px;">
+            <span>🏆 Phase 2: Knockout Stage Brackets</span>
+        </div>
+        <div class="bracket-container knockout-bracket-tree" id="<?= e($koTreeId) ?>">
+            <?php 
+            global $koMatchNumber;
+            $koMatchNumber = 1;
+            $kIdx = 1;
+            foreach ($knockoutStages as $group) {
+                renderBracketRoundColumn($group, $recordResultUrl, 'k-round-' . $kIdx);
+                $kIdx++;
+            } ?>
+        </div>
+
+        <script>
+        (function() {
+            var LINE_W = 2;
+            var LINE_COLOR = 'rgba(255, 255, 255, 0.35)';
+            function getMatchCenterY(m, cRect, sT) {
+                var players = m.querySelectorAll('.bracket-player');
+                if (players.length >= 2) {
+                    var p1Rect = players[0].getBoundingClientRect();
+                    var p2Rect = players[1].getBoundingClientRect();
+                    return (p1Rect.top + p2Rect.bottom) / 2 - cRect.top + sT;
+                }
+                var r = m.getBoundingClientRect();
+                return r.top + (r.height / 2) - cRect.top + sT;
+            }
+
+            function drawBracketLines() {
+                var container = document.getElementById('<?= e($koTreeId) ?>');
+                if (!container) return;
+
+                // Clear previous lines
+                var old = container.querySelectorAll('.ko-line');
+                for (var i = 0; i < old.length; i++) old[i].remove();
+
+                var rounds = container.querySelectorAll('.bracket-round');
+                if (rounds.length < 2) return;
+
+                var cRect = container.getBoundingClientRect();
+                var sL = container.scrollLeft;
+                var sT = container.scrollTop;
+
+                for (var r = 0; r < rounds.length - 1; r++) {
+                    var cur = rounds[r].querySelectorAll('.bracket-match');
+                    var nxt = rounds[r + 1].querySelectorAll('.bracket-match');
+
+                    for (var i = 0; i < cur.length; i += 2) {
+                        var m1 = cur[i];
+                        var m2 = cur[i + 1] || null;
+                        var nm = nxt[Math.floor(i / 2)];
+                        if (!m1 || !nm) continue;
+
+                        var r1 = m1.getBoundingClientRect();
+                        var r2 = m2 ? m2.getBoundingClientRect() : r1;
+                        var rn = nm.getBoundingClientRect();
+
+                        // Dynamic Y positions (center of the player area, relative to container)
+                        var y1 = getMatchCenterY(m1, cRect, sT);
+                        var y2 = m2 ? getMatchCenterY(m2, cRect, sT) : y1;
+                        var yn = getMatchCenterY(nm, cRect, sT);
+
+                        // X positions relative to container
+                        var xRight = r1.right - cRect.left + sL;
+                        var xNextL = rn.left - cRect.left + sL;
+                        var xMid   = Math.round((xRight + xNextL) / 2);
+
+                        if (m2) {
+                            // Horizontal: match1 → midpoint
+                            mk(container, xRight, y1 - LINE_W / 2, xMid - xRight, LINE_W);
+                            // Horizontal: match2 → midpoint
+                            mk(container, xRight, y2 - LINE_W / 2, xMid - xRight, LINE_W);
+                            // Vertical: spanning from minimum Y to maximum Y at midpoint
+                            var topY = Math.min(y1, y2, yn);
+                            var botY = Math.max(y1, y2, yn);
+                            mk(container, xMid - LINE_W / 2, topY, LINE_W, botY - topY + LINE_W);
+                            // Horizontal: midpoint → next match
+                            mk(container, xMid, yn - LINE_W / 2, xNextL - xMid, LINE_W);
+                        } else {
+                            // Single match: connect via midpoint to next match center Y
+                            mk(container, xRight, y1 - LINE_W / 2, xMid - xRight, LINE_W);
+                            var topY = Math.min(y1, yn);
+                            var botY = Math.max(y1, yn);
+                            mk(container, xMid - LINE_W / 2, topY, LINE_W, botY - topY + LINE_W);
+                            mk(container, xMid, yn - LINE_W / 2, xNextL - xMid, LINE_W);
+                        }
+                    }
+                }
+            }
+
+            function mk(p, x, y, w, h) {
+                var d = document.createElement('div');
+                d.className = 'ko-line';
+                d.style.cssText = 'left:' + x + 'px;top:' + y + 'px;width:' + Math.max(0, w) + 'px;height:' + Math.max(0, h) + 'px;background:' + LINE_COLOR;
+                p.appendChild(d);
+            }
+
+            // Initial draw
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', drawBracketLines);
+            } else {
+                drawBracketLines();
+            }
+
+            // Redraw on resize & scroll
+            window.addEventListener('resize', drawBracketLines);
+            var tree = document.getElementById('<?= e($koTreeId) ?>');
+            if (tree) tree.addEventListener('scroll', drawBracketLines);
+
+            // Also redraw after a short delay (for late-rendering elements)
+            setTimeout(drawBracketLines, 300);
+            setTimeout(drawBracketLines, 1000);
+        })();
+        </script>
+    <?php endif; ?>
+
+    <!-- Swap bracket slots modal -->
+    <div class="modal-overlay" id="bracketSwapModal">
+        <div class="modal" style="max-width: 420px;">
+            <div class="modal-header">
+                <div class="modal-title">Swap Bracket Position</div>
+                <button type="button" class="modal-close" data-modal-close>×</button>
+            </div>
+            <form method="POST" action="<?= e($recordResultUrl) ?>">
+                <input type="hidden" name="action" value="swap_slots">
+                <input type="hidden" name="tournament_id" value="<?= $tid ?>">
+                <input type="hidden" name="match1_id" id="swapMatch1Id">
+                <input type="hidden" name="slot1" id="swapSlot1">
+                <div class="modal-body">
+                    <p style="font-size: 13px; color: var(--text-200); margin-bottom: 16px;">
+                        Swap <strong id="swapSourcePlayerName" style="color: var(--accent);"></strong> with another participant in the first round to balance the bracket:
+                    </p>
+                    <div class="form-group">
+                        <label class="form-label">Swap With</label>
+                        <select name="match2_info" id="swapTargetSelect" class="form-select" required>
+                            <!-- Options filled dynamically by JS -->
+                        </select>
+                    </div>
+                    <input type="hidden" name="match2_id" id="swapMatch2Id">
+                    <input type="hidden" name="slot2" id="swapSlot2">
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline" data-modal-close>Cancel</button>
+                    <button type="submit" class="btn btn-accent">Confirm Swap</button>
+                </div>
+            </form>
+        </div>
     </div>
+
+    <script>
+    (function() {
+        document.querySelectorAll('.js-swap-slot-btn').forEach(function(btn) {
+            btn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                var matchId = btn.getAttribute('data-match-id');
+                var slot = btn.getAttribute('data-slot');
+                var playerName = btn.getAttribute('data-player-name');
+                
+                document.getElementById('swapMatch1Id').value = matchId;
+                document.getElementById('swapSlot1').value = slot;
+                document.getElementById('swapSourcePlayerName').textContent = playerName;
+                
+                var select = document.getElementById('swapTargetSelect');
+                select.innerHTML = '<option value="">— Select participant to swap with —</option>';
+                
+                document.querySelectorAll('.js-swap-slot-btn').forEach(function(otherBtn) {
+                    var oMatchId = otherBtn.getAttribute('data-match-id');
+                    var oSlot = otherBtn.getAttribute('data-slot');
+                    var oPlayerName = otherBtn.getAttribute('data-player-name');
+                    
+                    if (oMatchId === matchId && oSlot === slot) return;
+                    
+                    var opt = document.createElement('option');
+                    opt.value = oMatchId + ':' + oSlot;
+                    opt.textContent = oPlayerName + ' (Match #' + oMatchId + ', Slot ' + oSlot + ')';
+                    select.appendChild(opt);
+                });
+                
+                select.onchange = function() {
+                    var val = select.value;
+                    if (val) {
+                        var parts = val.split(':');
+                        document.getElementById('swapMatch2Id').value = parts[0];
+                        document.getElementById('swapSlot2').value = parts[1];
+                    } else {
+                        document.getElementById('swapMatch2Id').value = '';
+                        document.getElementById('swapSlot2').value = '';
+                    }
+                };
+                
+                if (window.TTMS && typeof window.TTMS.openModal === 'function') {
+                    window.TTMS.openModal('bracketSwapModal');
+                } else {
+                    document.getElementById('bracketSwapModal').classList.add('open');
+                }
+            });
+        });
+
+        // Simple modal close listener fallback
+        document.querySelectorAll('#bracketSwapModal [data-modal-close]').forEach(function(el) {
+            el.addEventListener('click', function() {
+                if (window.TTMS && typeof window.TTMS.closeModal === 'function') {
+                    window.TTMS.closeModal('bracketSwapModal');
+                } else {
+                    document.getElementById('bracketSwapModal').classList.remove('open');
+                }
+            });
+        });
+    })();
+    </script>
+
+    <script>
+    // Dynamically adjust grid columns based on match count
+    // Rule: 7+ matches = add another column. Ensures columns have a minimum width of 260px for names to display fully, scrolling horizontally if needed.
+    function adjustGridColumns() {
+        document.querySelectorAll('.group-match-grid').forEach(function(grid) {
+            var matchCount = grid.querySelectorAll('.bracket-match').length;
+            var columns = Math.max(1, Math.ceil(matchCount / 7));
+            grid.style.gridTemplateColumns = 'repeat(' + columns + ', minmax(260px, 1fr))';
+        });
+    }
+
+    // Run on load and after DOM updates
+    document.addEventListener('DOMContentLoaded', adjustGridColumns);
+    window.addEventListener('load', adjustGridColumns);
+    </script>
+
 <?php endif; ?>
+

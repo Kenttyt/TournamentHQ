@@ -75,16 +75,14 @@ require_once __DIR__ . '/../includes/header.php';
         <div class="table-responsive">
             <table class="data-table" id="orgPlayersTable">
                 <thead>
-                    <tr><th>#</th><th>Player</th><th>Club</th><th>Nationality</th><th>W</th><th>L</th><th>Win%</th></tr>
+                    <tr><th>#</th><th>Player</th><th>Club</th><th>Place</th></tr>
                 </thead>
                 <tbody>
                 <?php if (empty($players)): ?>
-                    <tr><td colspan="8"><div class="empty-state"><div class="empty-icon">🏓</div><h3>No players</h3><p>No players found for this filter.</p></div></td></tr>
+                    <tr><td colspan="4"><div class="empty-state"><div class="empty-icon">🏓</div><h3>No players</h3><p>No players found for this filter.</p></div></td></tr>
                 <?php else: ?>
                 <?php foreach ($players as $i => $p): 
                     $isGuest = $p['is_guest'] ?? false;
-                    $total = ($p['wins'] + $p['losses']);
-                    $winPct = $total > 0 ? round($p['wins']/$total*100) : 0;
                 ?>
                 <tr>
                     <td class="text-muted text-sm"><?= $i+1 ?></td>
@@ -110,18 +108,6 @@ require_once __DIR__ . '/../includes/header.php';
                         <?php endif; ?>
                     </td>
                     <td class="text-sm"><?= e($p['nationality'] ?: '—') ?></td>
-                    <td class="text-success font-bold"><?= $isGuest ? '—' : $p['wins'] ?></td>
-                    <td class="text-muted"><?= $isGuest ? '—' : $p['losses'] ?></td>
-                    <td>
-                        <?php if ($isGuest): ?>
-                            <span class="text-muted">—</span>
-                        <?php else: ?>
-                            <div style="display:flex;align-items:center;gap:8px">
-                                <div class="progress-bar" style="width:50px"><div class="progress-fill" style="width:<?= $winPct ?>%"></div></div>
-                                <span class="text-sm"><?= $winPct ?>%</span>
-                            </div>
-                        <?php endif; ?>
-                    </td>
                 </tr>
                 <?php endforeach; ?>
                 <?php endif; ?>

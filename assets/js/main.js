@@ -161,7 +161,9 @@ function initNotificationPage() {
     if (!list) return;
 
     const actionUrl = '/table-tennis-system/includes/notification_action.php';
-    list.querySelectorAll('[data-notification-id]').forEach((item) => {
+
+    // ---- Mark-read on link click (existing behaviour) ----
+    list.querySelectorAll('.notification-card-link[data-notification-id]').forEach((item) => {
         item.addEventListener('click', () => {
             const id = item.getAttribute('data-notification-id');
             if (!id) return;
@@ -170,6 +172,85 @@ function initNotificationPage() {
             body.set('notification_id', id);
             fetch(actionUrl, { method: 'POST', body, credentials: 'same-origin' }).catch(() => {});
         });
+    });
+
+    // ---- Kebab menu toggle ----
+    list.addEventListener('click', (e) => {
+        const kebabBtn = e.target.closest('.notif-kebab-btn');
+        if (kebabBtn) {
+            e.preventDefault();
+            e.stopPropagation();
+            const menu = kebabBtn.nextElementSibling;
+            const isOpen = !menu.hidden;
+
+            // Close all other open menus first
+            list.querySelectorAll('.notif-kebab-menu:not([hidden])').forEach(m => m.hidden = true);
+
+            menu.hidden = isOpen;
+            return;
+        }
+
+        // ---- Kebab action buttons ----
+        const actionBtn = e.target.closest('[data-notif-action]');
+        if (actionBtn) {
+            e.preventDefault();
+            e.stopPropagation();
+            const action = actionBtn.getAttribute('data-notif-action');
+            const notifId = actionBtn.getAttribute('data-notif-id');
+            const card = actionBtn.closest('.notification-card');
+
+            // Close the menu
+            const menu = actionBtn.closest('.notif-kebab-menu');
+            if (menu) menu.hidden = true;
+
+            if (!notifId) return;
+
+            const body = new URLSearchParams();
+            body.set('notification_id', notifId);
+
+            if (action === 'mark_read') {
+                body.set('action', 'mark_read');
+                fetch(actionUrl, { method: 'POST', body, credentials: 'same-origin' })
+                    .then(r => r.json())
+                    .then(data => {
+                        if (data.ok && card) {
+                            card.classList.remove('is-unread');
+                            // Remove the "Mark as Read" button from the menu
+                            actionBtn.remove();
+                        }
+                    })
+                    .catch(() => {});
+            } else if (action === 'delete') {
+                body.set('action', 'delete');
+                fetch(actionUrl, { method: 'POST', body, credentials: 'same-origin' })
+                    .then(r => r.json())
+                    .then(data => {
+                        if (data.ok && card) {
+                            card.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
+                            card.style.opacity = '0';
+                            card.style.transform = 'translateX(20px)';
+                            setTimeout(() => {
+                                card.remove();
+                                // If no notifications remain, show the empty state
+                                if (!list.querySelector('.notification-card')) {
+                                    const emptyDiv = document.createElement('div');
+                                    emptyDiv.className = 'notification-empty';
+                                    emptyDiv.innerHTML = '<p>No notifications yet</p>';
+                                    list.replaceWith(emptyDiv);
+                                }
+                            }, 300);
+                        }
+                    })
+                    .catch(() => {});
+            }
+        }
+    });
+
+    // ---- Close kebab menus when clicking outside ----
+    document.addEventListener('click', (e) => {
+        if (!e.target.closest('.notif-kebab-wrap')) {
+            list.querySelectorAll('.notif-kebab-menu:not([hidden])').forEach(m => m.hidden = true);
+        }
     });
 }
 

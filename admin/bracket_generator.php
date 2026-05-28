@@ -16,8 +16,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $postTid = (int) ($_POST['tournament_id'] ?? 0);
 
     if ($action === 'generate' && $postTid) {
-        $groupSize = normalizeGroupSize((int) ($_POST['group_size'] ?? 4));
+        $rawSize = $_POST['group_size'] ?? 4;
+        $groupSize = ($rawSize === 'all') ? 0 : normalizeGroupSize((int) $rawSize);
         $result = generateTournamentBracket($postTid, !empty($_POST['shuffle']), true, $groupSize);
+        $sizeParam = ($rawSize === 'all') ? 'all' : $groupSize;
         if ($result['ok']) {
             $msg = 'Bracket generated: ' . $result['matches'] . ' match(es) across '
                 . $result['groups'] . ' group(s) (' . $result['group_size'] . ' players per group).';
@@ -26,12 +28,39 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $msg .= ' Extra player(s) placed randomly: ' . implode('; ', $parts) . '.';
             }
             setFlash('success', $msg);
-            header('Location: bracket_generator.php?tournament_id=' . $postTid . '&group_size=' . $groupSize);
+            header('Location: bracket_generator.php?tournament_id=' . $postTid . '&group_size=' . $sizeParam);
             exit;
         } else {
             setFlash('danger', $result['message'] ?? 'Could not generate bracket.');
         }
-        header('Location: bracket_generator.php?tournament_id=' . $postTid . '&group_size=' . $groupSize);
+        header('Location: bracket_generator.php?tournament_id=' . $postTid . '&group_size=' . $sizeParam);
+        exit;
+    }
+
+    if ($action === 'generate_knockout' && $postTid) {
+        $knockoutFormat = trim($_POST['knockout_format'] ?? 'single_elimination');
+        $result = generateKnockoutStage($postTid, $knockoutFormat);
+        if ($result['ok']) {
+            $formatLabel = $knockoutFormat === 'single_elimination' ? 'Single Elimination' : 'Double Elimination';
+            setFlash('success', 'Group stage finished! Generated ' . $formatLabel . ' knockout stage with ' . $result['matches'] . ' match(es) for ' . $result['round_name'] . '.');
+        } else {
+            setFlash('danger', $result['message'] ?? 'Could not generate knockout stage.');
+        }
+        header('Location: bracket_generator.php?tournament_id=' . $postTid);
+        exit;
+    }
+
+    if ($action === 'swap_slots' && $postTid) {
+        $match1Id = (int) ($_POST['match1_id'] ?? 0);
+        $slot1 = (int) ($_POST['slot1'] ?? 1);
+        $match2Id = (int) ($_POST['match2_id'] ?? 0);
+        $slot2 = (int) ($_POST['slot2'] ?? 1);
+
+        if ($match1Id && $match2Id) {
+            swapBracketParticipants($postTid, $match1Id, $slot1, $match2Id, $slot2);
+            setFlash('success', 'Bracket slots swapped successfully to balance the bracket!');
+        }
+        header('Location: bracket_generator.php?tournament_id=' . $postTid);
         exit;
     }
 
@@ -50,7 +79,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $tournaments = getAllTournaments('', '');
 $tournament = $tid ? getTournamentById($tid) : null;
 $entrants = $tid ? getTournamentEntrants($tid) : [];
-$selectedGroupSize = normalizeGroupSize((int) ($_GET['group_size'] ?? $_POST['group_size'] ?? 4));
+$rawGS = $_GET['group_size'] ?? $_POST['group_size'] ?? 4;
+$selectedGroupSize = ($rawGS === 'all') ? 'all' : normalizeGroupSize((int) $rawGS);
 $bracketGroups = $tid ? buildBracketGroups($tid) : [];
 
 require_once __DIR__ . '/../includes/header.php';

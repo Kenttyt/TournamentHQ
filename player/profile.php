@@ -86,7 +86,6 @@ require_once __DIR__ . '/../includes/header.php';
             <div style="font-size:13px;color:var(--text-400);margin-top:4px"><?= e($player['club'] ?? '') ?></div>
         </div>
 
-        <!-- Change Password -->
         <div class="card">
             <div class="card-header">
                 <div class="card-title">

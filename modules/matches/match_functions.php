@@ -12,7 +12,8 @@ function matchSelectSql(): string {
                    COALESCE(p2.last_name, g2.last_name) AS p2_last,
                    COALESCE(pw.first_name, wg.first_name) AS winner_first,
                    COALESCE(pw.last_name, wg.last_name) AS winner_last,
-                   t.name AS tournament_name";
+                   t.name AS tournament_name,
+                   t.category AS tournament_category";
 }
 
 function matchFromSql(): string {
@@ -142,6 +143,138 @@ function adjustPlayerStatsForMatchResult(string $winnerKey, string $loserKey, in
     }
 }
 
+function processKnockoutByeMatch(int $matchId): void {
+    $match = getMatchById($matchId);
+    if (!$match || $match['status'] === 'completed') {
+        return;
+    }
+    if ((int)$match['round'] <= 1) {
+        return; // Only apply to knockout rounds
+    }
+
+    $has1 = !empty($match['player1_id']) || !empty($match['player1_guest_id']);
+    $has2 = !empty($match['player2_id']) || !empty($match['player2_guest_id']);
+
+    // Both present — normal match, do nothing
+    if ($has1 && $has2) {
+        return;
+    }
+    // Neither present — nothing to do yet
+    if (!$has1 && !$has2) {
+        return;
+    }
+
+    // For rounds > 2 (subsequent rounds), a match is only a bye if the feeder matches
+    // from the previous round are already completed. Otherwise, the empty slot is
+    // just waiting for the other feeder match to finish playing.
+    $currentRound = (int)$match['round'];
+    if ($currentRound > 2) {
+        $tournamentId = (int)$match['tournament_id'];
+        $prevRound = $currentRound - 1;
+        
+        // Get all matches in the previous round
+        $stmtPrev = db()->prepare("SELECT id, status FROM matches WHERE tournament_id = ? AND round = ? ORDER BY id ASC");
+        $stmtPrev->execute([$tournamentId, $prevRound]);
+        $prevMatches = $stmtPrev->fetchAll();
+        
+        // Find position of this match in the current round
+        $stmtCurr = db()->prepare("SELECT id FROM matches WHERE tournament_id = ? AND round = ? ORDER BY id ASC");
+        $stmtCurr->execute([$tournamentId, $currentRound]);
+        $currMatches = $stmtCurr->fetchAll(PDO::FETCH_COLUMN);
+        
+        $pos = array_search($matchId, $currMatches);
+        if ($pos !== false) {
+            $matchNo = $pos + 1;
+            $feed1Idx = ($matchNo - 1) * 2;
+            $feed2Idx = $feed1Idx + 1;
+            
+            $feed1 = $prevMatches[$feed1Idx] ?? null;
+            $feed2 = $prevMatches[$feed2Idx] ?? null;
+            
+            // If any of the feeder matches is not completed, it is not a bye walkover yet!
+            if ($feed1 && $feed1['status'] !== 'completed') {
+                return;
+            }
+            if ($feed2 && $feed2['status'] !== 'completed') {
+                return;
+            }
+        }
+    }
+
+
+    // One player, no opponent → walkover: auto-advance that player
+    if ($has1) {
+        $winnerKey = !empty($match['player1_id']) ? 'player:' . $match['player1_id'] : 'guest:' . $match['player1_guest_id'];
+    } else {
+        $winnerKey = !empty($match['player2_id']) ? 'player:' . $match['player2_id'] : 'guest:' . $match['player2_guest_id'];
+    }
+
+    $winner = parseParticipantKey($winnerKey);
+    if (!$winner) {
+        return;
+    }
+
+    $winnerPlayerId = $winner['type'] === 'player' ? $winner['id'] : null;
+    $winnerGuestId  = $winner['type'] === 'guest'  ? $winner['id'] : null;
+
+    // Mark the match as completed (walkover, score 1-0)
+    $stmt = db()->prepare(
+        "UPDATE matches SET winner_id = ?, winner_guest_id = ?, player1_score = ?, player2_score = ?, status = 'completed' WHERE id = ?"
+    );
+    $stmt->execute([
+        $winnerPlayerId,
+        $winnerGuestId,
+        $has1 ? 1 : 0,
+        $has1 ? 0 : 1,
+        $matchId
+    ]);
+
+    // Advance winner to the next round
+    $tournamentId  = (int) $match['tournament_id'];
+    $currentRound  = (int) $match['round'];
+    $nextRound     = $currentRound + 1;
+
+    $stmtCurr = db()->prepare("SELECT id FROM matches WHERE tournament_id = ? AND round = ? ORDER BY id ASC");
+    $stmtCurr->execute([$tournamentId, $currentRound]);
+    $currMatches = $stmtCurr->fetchAll(PDO::FETCH_COLUMN);
+
+    $pos = array_search($matchId, $currMatches);
+    if ($pos === false) {
+        return;
+    }
+
+    $matchNo      = $pos + 1;
+    $nextMatchNo  = (int) ceil($matchNo / 2);
+    $isSlot1      = ($matchNo % 2 !== 0);
+
+    $stmtNext = db()->prepare("SELECT id FROM matches WHERE tournament_id = ? AND round = ? ORDER BY id ASC");
+    $stmtNext->execute([$tournamentId, $nextRound]);
+    $nextMatches = $stmtNext->fetchAll(PDO::FETCH_COLUMN);
+
+    if (!isset($nextMatches[$nextMatchNo - 1])) {
+        return;
+    }
+
+    $nextMatchId = $nextMatches[$nextMatchNo - 1];
+
+    if ($winnerPlayerId) {
+        if ($isSlot1) {
+            db()->prepare("UPDATE matches SET player1_id = ?, player1_guest_id = NULL WHERE id = ?")->execute([$winnerPlayerId, $nextMatchId]);
+        } else {
+            db()->prepare("UPDATE matches SET player2_id = ?, player2_guest_id = NULL WHERE id = ?")->execute([$winnerPlayerId, $nextMatchId]);
+        }
+    } elseif ($winnerGuestId) {
+        if ($isSlot1) {
+            db()->prepare("UPDATE matches SET player1_id = NULL, player1_guest_id = ? WHERE id = ?")->execute([$winnerGuestId, $nextMatchId]);
+        } else {
+            db()->prepare("UPDATE matches SET player2_id = NULL, player2_guest_id = ? WHERE id = ?")->execute([$winnerGuestId, $nextMatchId]);
+        }
+    }
+
+    // Recursively check if the next match is also a bye
+    processKnockoutByeMatch($nextMatchId);
+}
+
 function recordBracketMatchResult(int $matchId, string $winnerKey, int $p1Score, int $p2Score): bool {
     $winner = parseParticipantKey($winnerKey);
     if (!$winner) {
@@ -174,10 +307,58 @@ function recordBracketMatchResult(int $matchId, string $winnerKey, int $p1Score,
         $p2Key = matchParticipantKey($match, 2);
         $loserKey = ($winnerKey === $p1Key) ? $p2Key : $p1Key;
         adjustPlayerStatsForMatchResult($winnerKey, $loserKey, 1);
+        
+        // If it is a knockout stage match (round > 1), automatically advance the winner to the next round TBD match
+        if ($match['round'] > 1) {
+            $tournamentId = (int) $match['tournament_id'];
+            $currentRound = (int) $match['round'];
+            $nextRound = $currentRound + 1;
+            
+            // Get all matches in the current round for this tournament, ordered by ID
+            $stmtCurr = db()->prepare("SELECT id FROM matches WHERE tournament_id = ? AND round = ? ORDER BY id ASC");
+            $stmtCurr->execute([$tournamentId, $currentRound]);
+            $currMatches = $stmtCurr->fetchAll(PDO::FETCH_COLUMN);
+            
+            $pos = array_search($matchId, $currMatches);
+            if ($pos !== false) {
+                $matchNo = $pos + 1;
+                $nextMatchNo = (int) ceil($matchNo / 2);
+                $isSlot1 = ($matchNo % 2 !== 0);
+                
+                // Get all matches in the next round, ordered by ID
+                $stmtNext = db()->prepare("SELECT id FROM matches WHERE tournament_id = ? AND round = ? ORDER BY id ASC");
+                $stmtNext->execute([$tournamentId, $nextRound]);
+                $nextMatches = $stmtNext->fetchAll(PDO::FETCH_COLUMN);
+                
+                if (isset($nextMatches[$nextMatchNo - 1])) {
+                    $nextMatchId = $nextMatches[$nextMatchNo - 1];
+                    
+                    if ($winnerPlayerId) {
+                        if ($isSlot1) {
+                            $stmtUpd = db()->prepare("UPDATE matches SET player1_id = ?, player1_guest_id = NULL WHERE id = ?");
+                        } else {
+                            $stmtUpd = db()->prepare("UPDATE matches SET player2_id = ?, player2_guest_id = NULL WHERE id = ?");
+                        }
+                        $stmtUpd->execute([$winnerPlayerId, $nextMatchId]);
+                    } elseif ($winnerGuestId) {
+                        if ($isSlot1) {
+                            $stmtUpd = db()->prepare("UPDATE matches SET player1_id = NULL, player1_guest_id = ? WHERE id = ?");
+                        } else {
+                            $stmtUpd = db()->prepare("UPDATE matches SET player2_id = NULL, player2_guest_id = ? WHERE id = ?");
+                        }
+                        $stmtUpd->execute([$winnerGuestId, $nextMatchId]);
+                    }
+
+                    // Check if the next match is now a bye (only one player, no opponent) and auto-advance
+                    processKnockoutByeMatch($nextMatchId);
+                }
+            }
+        }
     }
 
     return $ok;
 }
+
 
 function updateMatchResult(int $matchId, array $data): bool {
     $stmt = db()->prepare(
@@ -199,9 +380,13 @@ function getMatchCount(): int {
     return (int) db()->query("SELECT COUNT(*) FROM matches")->fetchColumn();
 }
 
-function getRecentMatches(int $limit = 5): array {
-    $stmt = db()->prepare(matchSelectSql() . matchFromSql() . " WHERE m.status = 'completed' ORDER BY m.updated_at DESC LIMIT ?");
-    $stmt->execute([$limit]);
+function getRecentMatches(?int $limit = null): array {
+    $sql = matchSelectSql() . matchFromSql() . " WHERE m.status = 'completed' ORDER BY m.updated_at DESC";
+    if ($limit !== null) {
+        $sql .= " LIMIT ?";
+    }
+    $stmt = db()->prepare($sql);
+    $stmt->execute($limit !== null ? [$limit] : []);
     return $stmt->fetchAll();
 }
 
