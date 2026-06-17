@@ -80,6 +80,39 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         header('Location: tournaments.php'); exit;
     }
 
+    if ($action === 'edit') {
+        $id = (int)($_POST['tournament_id'] ?? 0);
+        if ($id && isTournamentOwnedBy($id, $userId)) {
+            $existing = getTournamentById($id);
+            if ($existing) {
+                $category = trim($_POST['category'] ?? '');
+                if (empty($category)) {
+                    $category = 'Open Singles';
+                }
+                updateTournament($id, [
+                    'name'        => trim($_POST['name'] ?? $existing['name']),
+                    'category'    => $category,
+                    'description' => trim($_POST['description'] ?? $existing['description']),
+                    'format'      => $existing['format'],
+                    'status'      => $existing['status'],
+                    'max_players' => (int)($_POST['max_players'] ?? $existing['max_players']),
+                    'start_date'  => $_POST['start_date'] ?? $existing['start_date'],
+                    'end_date'    => $_POST['end_date'] ?? $existing['end_date'],
+                    'venue'       => $existing['venue'],
+                    'prize_champion' => trim($_POST['prize_champion'] ?? $existing['prize_champion']),
+                    'prize_2nd'      => trim($_POST['prize_2nd'] ?? $existing['prize_2nd']),
+                    'prize_3rd'      => trim($_POST['prize_3rd'] ?? $existing['prize_3rd']),
+                    'prize_4th'      => trim($_POST['prize_4th'] ?? $existing['prize_4th']),
+                    'registration_fee' => trim($_POST['registration_fee'] ?? $existing['registration_fee']),
+                ]);
+                setFlash('success', 'Tournament updated.');
+            }
+        } else {
+            setFlash('danger', 'You can only edit tournaments you created.');
+        }
+        header('Location: tournaments.php'); exit;
+    }
+
     if ($action === 'status') {
         $id = (int)($_POST['tournament_id'] ?? 0);
         $st = $_POST['status'] ?? '';
@@ -101,7 +134,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 // Move to ongoing status and redirect to bracket generator
                 updateTournament($id, array_merge($t, ['status' => 'ongoing']));
                 setFlash('success', 'Tournament moved to bracketing.');
-                header('Location: /table-tennis-system/organizer/bracket_generator.php?tournament_id=' . $id);
+                header('Location: /TournamentHQ/organizer/bracket_generator.php?tournament_id=' . $id);
                 exit;
             }
         }
@@ -283,7 +316,7 @@ function renderTournamentCard(array $t, int $userId): void {
             </div>
         </div>
         <div class="tournament-meta">
-            <span><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg><?= date('M j, Y', strtotime($t['start_date'])) ?></span>
+            <span><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg><?= date('M j, Y', strtotime($t['start_date'])) ?><?= $t['end_date'] ? ' — '.date('M j, Y', strtotime($t['end_date'])) : '' ?></span>
             <span><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg><?= $t['registered_count'] ?>/<?= $t['max_players'] ?> players</span>
             <?php if ($t['venue']): ?><span>📍 <?= e($t['venue']) ?></span><?php endif; ?>
             <?php if ($fee = formatRegistrationFee($t)): ?><span>💳 Reg. fee: <?= e($fee) ?></span><?php endif; ?>
@@ -321,7 +354,12 @@ function renderTournamentCard(array $t, int $userId): void {
                         $displayName = trim($pl['first_name'] . ' ' . $pl['last_name']);
                     ?>
                         <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;padding:6px 8px;background:var(--bg-800);border-radius:var(--radius-sm)">
-                            <span style="font-size:12px;font-weight:600;color:var(--text-200)"><?= e($displayName) ?></span>
+                            <span style="font-size:12px;font-weight:600;color:var(--text-200)">
+                                <?= e($displayName) ?>
+                                <?php if (!empty($pl['club'])): ?>
+                                <span class="text-muted" style="font-weight:500"> · <?= e($pl['club']) ?></span>
+                                <?php endif; ?>
+                            </span>
                             <div style="display:flex;gap:6px">
                                 <form method="POST" style="display:inline">
                                     <input type="hidden" name="action" value="approve_registration">
@@ -396,7 +434,9 @@ function renderTournamentCard(array $t, int $userId): void {
                 <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 12px;background:var(--bg-700);border:1px solid var(--border);border-radius:var(--radius-sm)">
                     <div>
                         <div style="font-size:13px;font-weight:700;color:var(--text-100);"><?= e($tg['first_name'].' '.$tg['last_name']) ?></div>
-                        <div style="font-size:11px;color:var(--text-400)">Player</div>
+                        <div style="font-size:11px;color:var(--text-400)">
+                            <?= e($tg['club'] ?: 'No club') ?><?= !empty($tg['nationality']) ? ' · ' . e($tg['nationality']) : '' ?>
+                        </div>
                     </div>
                     <form method="POST" style="display:inline">
                         <input type="hidden" name="action" value="remove_registration">
@@ -416,6 +456,10 @@ function renderTournamentCard(array $t, int $userId): void {
                 <div class="progress-fill" style="width:<?= $t['max_players']>0?min(100,round($t['registered_count']/$t['max_players']*100)):0 ?>%"></div>
             </div>
             <div class="btn-group">
+                <button class="btn btn-ghost btn-sm" onclick="openEditTournament(<?= htmlspecialchars(json_encode($t), ENT_QUOTES) ?>)">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                    Edit
+                </button>
                 
                 <?php if ($t['status'] === 'upcoming'): ?>
                     <form method="POST" style="display:inline; margin: 0;">
@@ -424,7 +468,7 @@ function renderTournamentCard(array $t, int $userId): void {
                         <button type="submit" class="btn btn-primary btn-sm" title="Start bracketing and view bracket">Check Bracket</button>
                     </form>
                 <?php else: ?>
-                    <a href="/table-tennis-system/organizer/bracket_generator.php?tournament_id=<?= (int) $t['id'] ?>" class="btn btn-outline btn-sm" title="View tournament bracket">Check Bracket</a>
+                    <a href="/TournamentHQ/organizer/bracket_generator.php?tournament_id=<?= (int) $t['id'] ?>" class="btn btn-outline btn-sm" title="View tournament bracket">Check Bracket</a>
                 <?php endif; ?>
                 
                 <?php 
@@ -511,11 +555,11 @@ require_once __DIR__ . '/../includes/header.php';
                 <div class="form-row">
                     <div class="form-group">
                         <label class="form-label">Start Date *</label>
-                        <input type="date" name="start_date" class="form-control" required>
+                        <input type="date" name="start_date" id="createStart" class="form-control" required>
                     </div>
                     <div class="form-group">
                         <label class="form-label">End Date</label>
-                        <input type="date" name="end_date" class="form-control">
+                        <input type="date" name="end_date" id="createEnd" class="form-control">
                     </div>
                 </div>
                 <!-- Dynamic Categories Container -->
@@ -591,6 +635,57 @@ require_once __DIR__ . '/../includes/header.php';
             <div class="modal-footer">
                 <button type="button" class="btn btn-outline" data-modal-close>Cancel</button>
                 <button type="submit" class="btn btn-accent">Register</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Edit Tournament Modal -->
+<div class="modal-overlay" id="editTournamentModal">
+    <div class="modal" style="max-width:620px">
+        <div class="modal-header">
+            <div class="modal-title">Edit Tournament</div>
+            <button class="modal-close" data-modal-close>×</button>
+        </div>
+        <form method="POST">
+            <input type="hidden" name="action" value="edit">
+            <input type="hidden" name="tournament_id" id="etId">
+            <div class="modal-body">
+                <div class="form-group">
+                    <label class="form-label">Tournament Name *</label>
+                    <input type="text" name="name" id="etName" class="form-control" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Description</label>
+                    <textarea name="description" id="etDesc" class="form-control" rows="2"></textarea>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Category *</label>
+                    <input type="text" name="category" id="etCategory" class="form-control" required placeholder="e.g. Open Singles">
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Start Date</label>
+                        <input type="date" name="start_date" id="etStart" class="form-control">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">End Date</label>
+                        <input type="date" name="end_date" id="etEnd" class="form-control">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Max Players</label>
+                        <input type="number" name="max_players" id="etMax" class="form-control">
+                    </div>
+                </div>
+                <div id="etPrizeFields">
+                    <?php $namePrefix = ''; $values = []; include __DIR__ . '/../includes/tournament_prize_fields.php'; ?>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline" data-modal-close>Cancel</button>
+                <button type="submit" class="btn btn-primary">Save Changes</button>
             </div>
         </form>
     </div>
@@ -744,6 +839,92 @@ function removeCategoryRow(button) {
         labels.forEach((label, idx) => {
             label.textContent = 'Category #' + (idx + 1);
         });
+    }
+}
+
+// Set min dates and bind change listeners to keep end date >= start date
+(function() {
+    var today = new Date();
+    var yyyy = today.getFullYear();
+    var mm = String(today.getMonth() + 1).padStart(2, '0');
+    var dd = String(today.getDate()).padStart(2, '0');
+    var minDate = yyyy + '-' + mm + '-' + dd;
+
+    var createStart = document.getElementById('createStart');
+    var createEnd = document.getElementById('createEnd');
+    var etStart = document.getElementById('etStart');
+    var etEnd = document.getElementById('etEnd');
+
+    if (createStart && createEnd) {
+        createStart.setAttribute('min', minDate);
+        createEnd.setAttribute('min', minDate);
+
+        createStart.addEventListener('change', function() {
+            var val = createStart.value;
+            if (val) {
+                createEnd.setAttribute('min', val);
+                if (createEnd.value && createEnd.value < val) {
+                    createEnd.value = val;
+                }
+            } else {
+                createEnd.setAttribute('min', minDate);
+            }
+        });
+    }
+
+    if (etStart && etEnd) {
+        etStart.addEventListener('change', function() {
+            var val = etStart.value;
+            if (val) {
+                etEnd.setAttribute('min', val);
+                if (etEnd.value && etEnd.value < val) {
+                    etEnd.value = val;
+                }
+            }
+        });
+    }
+})();
+
+function openEditTournament(t) {
+    document.getElementById('etId').value     = t.id;
+    document.getElementById('etName').value   = t.name;
+    document.getElementById('etDesc').value   = t.description || '';
+    document.getElementById('etCategory').value = t.category || '';
+
+    document.getElementById('etStart').value  = t.start_date;
+    document.getElementById('etEnd').value    = t.end_date || '';
+    document.getElementById('etMax').value    = t.max_players;
+
+    var etStartInput = document.getElementById('etStart');
+    var etEndInput = document.getElementById('etEnd');
+    if (etStartInput && etEndInput) {
+        var todayVal = new Date().toISOString().split('T')[0];
+        var minStart = t.start_date && t.start_date < todayVal ? t.start_date : todayVal;
+        etStartInput.setAttribute('min', minStart);
+        etEndInput.setAttribute('min', t.start_date || todayVal);
+    }
+
+    var setPrize = function(id, val) { var el = document.querySelector('#etPrizeFields [name="' + id + '"]'); if (el) el.value = val || ''; };
+    setPrize('prize_champion', t.prize_champion);
+    setPrize('prize_2nd', t.prize_2nd);
+    setPrize('prize_3rd', t.prize_3rd);
+    setPrize('prize_4th', t.prize_4th);
+    setPrize('registration_fee', t.registration_fee);
+    TTMS.openModal('editTournamentModal');
+}
+
+function toggleEditCustomCategory(val) {
+    var group = document.getElementById('editCustomCategoryGroup');
+    var input = document.getElementById('editCustomCategoryInput');
+    if (group && input) {
+        if (val === 'custom') {
+            group.style.display = 'block';
+            input.required = true;
+            input.focus();
+        } else {
+            group.style.display = 'none';
+            input.required = false;
+        }
     }
 }
 </script>

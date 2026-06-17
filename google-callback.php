@@ -6,6 +6,7 @@ require_once __DIR__ . '/includes/auth.php';
 require_once __DIR__ . '/modules/auth/google_oauth.php';
 
 $oauthMode = getGoogleOAuthMode();
+$oauthRole = getGoogleOAuthRole();
 $returnUrl = googleOAuthReturnUrl($oauthMode);
 
 if (isLoggedIn()) {
@@ -63,71 +64,44 @@ try {
             header('Location: ' . $returnUrl);
             exit;
         }
-        $_SESSION['user_id']  = $user['id'];
-        $_SESSION['username'] = $user['username'];
-        $_SESSION['role']     = $user['role'];
-        $_SESSION['email']    = $user['email'];
+
+        // If the user came from the SIGNUP page, don't auto-login — they already have an account
+        if ($oauthMode === 'register') {
+            $loginUrl = '/TournamentHQ/login.php' . ($oauthRole === 'organizer' ? '?role=organizer' : '');
+            clearGoogleOAuthSession();
+            // Special case: player Google account used on the organizer sign-up
+            if ($oauthRole === 'organizer' && $user['role'] === 'player') {
+                setFlash('warning', '⚠️ This Google account is already linked to a <strong>Player account</strong>. You cannot register it as an Organizer. Please use a different Google account, or <a href="/TournamentHQ/login.php">log in as a player</a> instead.');
+            } else {
+                setFlash('error', 'An account with this Google email already exists. Please log in instead.');
+            }
+            header('Location: ' . $loginUrl);
+            exit;
+        }
+
+        // Do NOT automatically log the user in. Redirect them to the login page to type their credentials.
+        $loginUrl = '/TournamentHQ/login.php' . ($oauthRole === 'organizer' ? '?role=organizer' : '');
         clearGoogleOAuthSession();
-        header('Location: ' . getDashboardUrl($user['role']));
+        setFlash('success', 'Google account linked! Please enter your username and password below to log in.');
+        header('Location: ' . $loginUrl);
         exit;
     }
 
     // No account for this Google email
     if ($oauthMode === 'login') {
         setFlash(
-            'danger',
-            'No account found for this Google email. Please create an account first using Sign up with Google on the registration page.'
+            'error',
+            'No account found for this Google email. Please create an account first using Sign up with Google.'
         );
         clearGoogleOAuthSession();
-        header('Location: /table-tennis-system/register.php');
+        header('Location: /TournamentHQ/login.php');
         exit;
     }
 
-    // Register mode — create new player account
-    $firstName = trim($profile['given_name'] ?? '');
-    $lastName = trim($profile['family_name'] ?? '');
-    if ($firstName === '' && $lastName === '') {
-        $parts = explode(' ', trim($profile['name'] ?? 'Google User'), 2);
-        $firstName = $parts[0] ?? 'Google';
-        $lastName = $parts[1] ?? 'User';
-    }
-
-    $pdo->beginTransaction();
-
-    $generatedUsername = generateUniqueUsername($firstName, $lastName);
-    $randomPwHash = password_hash(bin2hex(random_bytes(16)), PASSWORD_DEFAULT);
-    $stmt = $pdo->prepare(
-        "INSERT INTO users (username, password, email, role, is_active) VALUES (?, ?, ?, 'player', 1)"
-    );
-    $stmt->execute([$generatedUsername, $randomPwHash, $email]);
-    $userId = (int) $pdo->lastInsertId();
-
-    $stmt = $pdo->prepare(
-        "INSERT INTO players (user_id, first_name, last_name, gender, points, wins, losses) VALUES (?, ?, ?, 'male', 0, 0, 0)"
-    );
-    $stmt->execute([$userId, $firstName, $lastName]);
-
-    $playerId = (int) $pdo->lastInsertId();
-    try {
-        $stmt = $pdo->prepare(
-            "INSERT INTO rankings (player_id, total_points, tournaments_played, matches_played, matches_won, matches_lost, win_rate)
-             VALUES (?, 0, 0, 0, 0, 0, 0.00)"
-        );
-        $stmt->execute([$playerId]);
-    } catch (PDOException $rankEx) {
-        // rankings table optional on some installs
-    }
-
-    $pdo->commit();
-
-    $_SESSION['user_id']  = $userId;
-    $_SESSION['username'] = $generatedUsername;
-    $_SESSION['role']     = 'player';
-    $_SESSION['email']    = $email;
-
+    // Register mode — redirect to signup form with email pre-filled and read-only
+    $roleQuery = $oauthRole === 'organizer' ? '&role=organizer' : '';
     clearGoogleOAuthSession();
-    setFlash('success', 'Welcome! Your account was created with Google. You can sign in with Google next time.');
-    header('Location: ' . getDashboardUrl('player'));
+    header('Location: /TournamentHQ/login.php?google_email=' . urlencode($email) . $roleQuery);
     exit;
 } catch (Throwable $e) {
     if (isset($pdo) && $pdo->inTransaction()) {

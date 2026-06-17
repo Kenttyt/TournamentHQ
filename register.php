@@ -1,10 +1,11 @@
-﻿<?php
+<?php
 /**
  * Player Registration Page
  * Table Tennis Tournament Management System
  */
 require_once __DIR__ . '/includes/auth.php';
 require_once __DIR__ . '/modules/auth/google_oauth.php';
+require_once __DIR__ . '/includes/mailer.php';
 
 // Redirect if already logged in
 if (isLoggedIn()) {
@@ -48,7 +49,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $pdo->beginTransaction();
                 // Insert user with username and email
                 $hashed_pw = password_hash($password, PASSWORD_DEFAULT);
-                $stmt = $pdo->prepare("INSERT INTO users (username, password, email, role, is_active) VALUES (?, ?, ?, 'player', 1)");
+                $stmt = $pdo->prepare("INSERT INTO users (username, password, email, role, is_active, auth_method) VALUES (?, ?, ?, 'player', 1, 'local')");
                 $stmt->execute([$username, $hashed_pw, $email]);
                 $userId = $pdo->lastInsertId();
 
@@ -57,18 +58,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $stmt->execute([$userId, $username, '', $gender, $club ?: null, $nationality ?: null]);
                 $playerId = $pdo->lastInsertId();
 
-                // Insert initial rankings record
-                $stmt = $pdo->prepare("INSERT INTO rankings (player_id, total_points, tournaments_played, matches_played, matches_won, matches_lost, win_rate) VALUES (?, 0, 0, 0, 0, 0, 0.00)");
-                $stmt->execute([$playerId]);
-
                 $pdo->commit();
 
-                // Auto log in user
-                $_SESSION['user_id']  = $userId;
-                $_SESSION['username'] = $username;
-                $_SESSION['role']     = 'player';
+                // Generate verification token and store it
+                $token = bin2hex(random_bytes(32));
+                $expires = (new DateTime('+24 hours'))->format('Y-m-d H:i:s');
+                try {
+                    db()->prepare("UPDATE users SET verification_token = ?, token_expires = ?, is_verified = 0 WHERE id = ?")->execute([$token, $expires, $userId]);
+                } catch (Exception $e) {
+                    // non-fatal
+                }
 
-                header('Location: ' . getDashboardUrl('player'));
+                // Send verification email (best-effort)
+                $sendRes = send_verification_email($email, $username, $userId, $token);
+
+                if ($sendRes['success']) {
+                    setFlash('success', 'Account created! A verification email has been sent to ' . e($email) . '. Please verify your email to access your account (check your spam folder if you do not see it).');
+                } else {
+                    setFlash('warning', 'Account created! However, we could not send the verification email to ' . e($email) . ' automatically. Please try to log in to resend the verification email, or contact support.');
+                }
+                header('Location: /TournamentHQ/index.php');
                 exit;
             }
         } catch (PDOException $e) {
@@ -87,12 +96,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" content="Register as a player or organize table tennis tournaments â€” registration and brackets in one system.">
-    <title>Register | TT Tournament Manager</title>
+    <title>Register | TournamentHQ</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@400;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://unpkg.com/lucide-static@latest/font/lucide.css">
-    <link rel="stylesheet" href="/table-tennis-system/assets/css/style.css">
+    <link rel="stylesheet" href="/TournamentHQ/assets/css/style.css">
     <style>
         :root {
             --primary:        #6c63ff;
@@ -434,7 +443,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     <span class="step-num">2</span>
                     <div class="step-body">
                         <h3>Join or host a tournament</h3>
-                        <p>Organizers set up events, seed players, and publish brackets for everyone to follow.</p>
+                        <p>Organizers set up events, players, and publish brackets for everyone to follow.</p>
                     </div>
                 </div>
             </div>
@@ -549,7 +558,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 </form>
 
                 <?php if ($googleEnabled): ?>
-                <a href="/table-tennis-system/google-login.php?mode=register" class="btn" style="width: 100%; justify-content: center; height: 44px; font-size: 14px; background: #ffffff; color: #1f1f1f; margin-top: 12px; border: 1px solid #dadce0; font-family: 'Roboto', sans-serif; font-weight: 500;">
+                <a href="/TournamentHQ/google-login.php?mode=register" class="btn" style="width: 100%; justify-content: center; height: 44px; font-size: 14px; background: #ffffff; color: #1f1f1f; margin-top: 12px; border: 1px solid #dadce0; font-family: 'Roboto', sans-serif; font-weight: 500;">
                     <svg viewBox="0 0 24 24" width="18" height="18" style="margin-right: 8px; vertical-align: middle;">
                         <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
                         <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
@@ -566,7 +575,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                 <div class="login-sep">Already have an account?</div>
 
-                <a href="/table-tennis-system/index.php" class="btn btn-outline" style="width: 100%; justify-content: center; height: 44px; font-size: 14px;">
+                <a href="/TournamentHQ/index.php" class="btn btn-outline" style="width: 100%; justify-content: center; height: 44px; font-size: 14px;">
                     <i data-lucide="log-in" style="margin-right: 6px;"></i>
                     Sign In
                 </a>
@@ -587,9 +596,9 @@ document.addEventListener('DOMContentLoaded', () => {
     // Toggle Password visibility
     const togglePw = document.getElementById('togglePw');
     const pwInput = document.getElementById('password');
-    const pwIcon = document.getElementById('pwIcon');
     if (togglePw && pwInput) {
         togglePw.addEventListener('click', () => {
+            const pwIcon = document.getElementById('pwIcon');
             if (pwInput.type === 'password') {
                 pwInput.type = 'text';
                 pwIcon.setAttribute('data-lucide', 'eye-off');

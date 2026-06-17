@@ -1,3 +1,3 @@
 <?php
-header('Location: /table-tennis-system/organizer/bracket_generator.php' . (isset($_SERVER['QUERY_STRING']) && $_SERVER['QUERY_STRING'] ? '?' . $_SERVER['QUERY_STRING'] : ''));
+header('Location: /TournamentHQ/organizer/bracket_generator.php' . (isset($_SERVER['QUERY_STRING']) && $_SERVER['QUERY_STRING'] ? '?' . $_SERVER['QUERY_STRING'] : ''));
 exit;

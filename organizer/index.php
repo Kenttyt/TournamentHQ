@@ -6,6 +6,7 @@ $pageTitle = 'Organizer Dashboard';
 require_once __DIR__ . '/../includes/auth.php';
 requireRole(['admin','organizer']);
 require_once __DIR__ . '/../modules/tournaments/tournament_functions.php';
+require_once __DIR__ . '/../modules/uploads/payment_proof.php';
 require_once __DIR__ . '/../modules/matches/match_functions.php';
 
 $userId       = (int)$_SESSION['user_id'];
@@ -23,28 +24,28 @@ require_once __DIR__ . '/../includes/header.php';
 <!-- Stats -->
 <div class="stats-grid">
     <div class="stat-card">
-        <div class="stat-icon purple">🏆</div>
+        <div class="stat-icon purple"><i data-lucide="trophy" style="color: var(--primary-light)"></i></div>
         <div class="stat-info">
             <div class="stat-value"><?= $totalTourneys ?></div>
             <div class="stat-label">My Tournaments</div>
         </div>
     </div>
     <div class="stat-card">
-        <div class="stat-icon teal">⚡</div>
+        <div class="stat-icon teal"><i data-lucide="zap" style="color: var(--accent)"></i></div>
         <div class="stat-info">
             <div class="stat-value"><?= $activeTourneys ?></div>
             <div class="stat-label">Active Now</div>
         </div>
     </div>
     <div class="stat-card">
-        <div class="stat-icon yellow">✅</div>
+        <div class="stat-icon yellow"><i data-lucide="check-circle" style="color: var(--warning)"></i></div>
         <div class="stat-info">
             <div class="stat-value"><?= $completedT ?></div>
             <div class="stat-label">Completed</div>
         </div>
     </div>
     <div class="stat-card">
-        <div class="stat-icon blue">📅</div>
+        <div class="stat-icon blue"><i data-lucide="history" style="color: var(--info)"></i></div>
         <div class="stat-info">
             <div class="stat-value"><?= count($approvalHistory) ?></div>
             <div class="stat-label">History</div>
@@ -60,7 +61,7 @@ require_once __DIR__ . '/../includes/header.php';
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89L17 22l-5-3-5 3 1.523-9.11"/></svg>
                 My Tournaments
             </div>
-            <a href="/table-tennis-system/organizer/tournaments.php" class="btn btn-primary btn-sm">
+            <a href="/TournamentHQ/organizer/tournaments.php" class="btn btn-primary btn-sm">
                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
                 New
             </a>
@@ -102,7 +103,7 @@ require_once __DIR__ . '/../includes/header.php';
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
                 Recent Results
             </div>
-            <a href="/table-tennis-system/organizer/bracket_generator.php" class="btn btn-ghost btn-sm">Open Bracket</a>
+            <a href="/TournamentHQ/organizer/bracket_generator.php" class="btn btn-ghost btn-sm">Open Bracket</a>
         </div>
         <div class="card-body" style="padding:0">
             <?php if (empty($recentResults)): ?>
@@ -120,7 +121,12 @@ require_once __DIR__ . '/../includes/header.php';
                         <span style="color:<?= $m['winner_id']==$m['player2_id']?'var(--success)':'var(--text-300)' ?>;font-weight:600"><?= e($m['p2_first'].' '.$m['p2_last']) ?></span>
                     </td>
                     <td class="text-sm"><?= e($m['tournament_category'] ?? '') ?></td>
-                    <td><strong><?= $m['player1_score'] ?> — <?= $m['player2_score'] ?></strong></td>
+                    <td>
+                        <strong><?= $m['player1_score'] ?> — <?= $m['player2_score'] ?></strong>
+                        <?php if (!empty($m['set_scores'])): ?>
+                            <div class="text-muted text-xs" style="margin-top: 2px; font-family: monospace;"><?= e(str_replace(',', '  ', $m['set_scores'])) ?></div>
+                        <?php endif; ?>
+                    </td>
                     <td class="text-sm"><?= e(trim($m['winner_first'].' '.$m['winner_last'])) ?: 'TBD' ?></td>
                     <td class="text-sm"><?= e(date('M j, Y H:i', strtotime($m['updated_at'] ?? $m['match_date'] ?? ''))) ?></td>
                 </tr>
@@ -162,9 +168,15 @@ require_once __DIR__ . '/../includes/header.php';
                     <?= $sourceLabel ?>
                     <div class="text-xs text-muted"><?= $r['type'] === 'player' ? 'Account player' : 'Player' ?></div>
                 </td>
-                <td class="text-sm"><a href="/table-tennis-system/organizer/tournaments.php?tournament_id=<?= (int)$r['tournament_id'] ?>"><?= e($r['tournament_name'] ?? 'Unknown') ?></a></td>
+                <td class="text-sm"><a href="/TournamentHQ/organizer/tournaments.php?tournament_id=<?= (int)$r['tournament_id'] ?>"><?= e($r['tournament_name'] ?? 'Unknown') ?></a></td>
                 <td class="text-sm"><?= e(trim(($r['submitter_first'] ?? '') . ' ' . ($r['submitter_last'] ?? ''))) ?></td>
-                <td class="text-sm"><?= !empty($r['payment_proof_path']) ? 'With proof' : 'Without proof' ?></td>
+                <td class="text-sm">
+                    <?php if (!empty($r['payment_proof_path'])): ?>
+                        <a href="<?= e(paymentProofPublicUrl($r['payment_proof_path'])) ?>" target="_blank" class="btn btn-outline btn-xs">View Proof</a>
+                    <?php else: ?>
+                        Without proof
+                    <?php endif; ?>
+                </td>
                 <td class="text-sm"><?= e(date('M j, Y H:i', strtotime($r['ts'] ?? ''))) ?></td>
             </tr>
             <?php endforeach; ?>

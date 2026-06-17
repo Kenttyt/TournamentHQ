@@ -249,11 +249,11 @@ require_once __DIR__ . '/../includes/header.php';
                 <div class="form-row">
                     <div class="form-group">
                         <label class="form-label">Start Date *</label>
-                        <input type="date" name="start_date" class="form-control" required>
+                        <input type="date" name="start_date" id="createStart" class="form-control" required>
                     </div>
                     <div class="form-group">
                         <label class="form-label">End Date</label>
-                        <input type="date" name="end_date" class="form-control">
+                        <input type="date" name="end_date" id="createEnd" class="form-control">
                     </div>
                 </div>
                 <div class="form-group">
@@ -454,6 +454,16 @@ function openEditTournament(t) {
     document.getElementById('etEnd').value    = t.end_date || '';
     document.getElementById('etMax').value    = t.max_players;
     document.getElementById('etVenue').value  = t.venue || '';
+
+    var etStartInput = document.getElementById('etStart');
+    var etEndInput = document.getElementById('etEnd');
+    if (etStartInput && etEndInput) {
+        var todayVal = new Date().toISOString().split('T')[0];
+        var minStart = t.start_date && t.start_date < todayVal ? t.start_date : todayVal;
+        etStartInput.setAttribute('min', minStart);
+        etEndInput.setAttribute('min', t.start_date || todayVal);
+    }
+
     const setPrize = (id, val) => { const el = document.querySelector('#etPrizeFields [name="' + id + '"]'); if (el) el.value = val || ''; };
     setPrize('prize_champion', t.prize_champion);
     setPrize('prize_2nd', t.prize_2nd);
@@ -549,6 +559,49 @@ function toggleEditCustomCategory(val) {
         }
     }
 }
+
+// Set min dates and bind change listeners to keep end date >= start date
+(function() {
+    var today = new Date();
+    var yyyy = today.getFullYear();
+    var mm = String(today.getMonth() + 1).padStart(2, '0');
+    var dd = String(today.getDate()).padStart(2, '0');
+    var minDate = yyyy + '-' + mm + '-' + dd;
+
+    var createStart = document.getElementById('createStart');
+    var createEnd = document.getElementById('createEnd');
+    var etStart = document.getElementById('etStart');
+    var etEnd = document.getElementById('etEnd');
+
+    if (createStart && createEnd) {
+        createStart.setAttribute('min', minDate);
+        createEnd.setAttribute('min', minDate);
+
+        createStart.addEventListener('change', function() {
+            var val = createStart.value;
+            if (val) {
+                createEnd.setAttribute('min', val);
+                if (createEnd.value && createEnd.value < val) {
+                    createEnd.value = val;
+                }
+            } else {
+                createEnd.setAttribute('min', minDate);
+            }
+        });
+    }
+
+    if (etStart && etEnd) {
+        etStart.addEventListener('change', function() {
+            var val = etStart.value;
+            if (val) {
+                etEnd.setAttribute('min', val);
+                if (etEnd.value && etEnd.value < val) {
+                    etEnd.value = val;
+                }
+            }
+        });
+    }
+})();
 </script>
 
 <?php require_once __DIR__ . '/../includes/footer.php'; ?>

@@ -14,14 +14,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($action === 'edit') {
         $id = (int)($_POST['player_id'] ?? 0);
         if ($id) {
-            updatePlayer($id, [
-                'first_name'    => trim($_POST['first_name'] ?? ''),
-                'last_name'     => trim($_POST['last_name'] ?? ''),
-                'date_of_birth' => $_POST['date_of_birth'] ?? '',
-                'gender'        => $_POST['gender'] ?? 'male',
-                'club'          => trim($_POST['club'] ?? ''),
-                'nationality'   => trim($_POST['nationality'] ?? ''),
-            ]);
+            updatePlayer($id, normalizePlayerProfileData($_POST));
             setFlash('success', 'Player updated successfully.');
         }
         header('Location: manage_players.php'); exit;
@@ -44,7 +37,7 @@ require_once __DIR__ . '/../includes/header.php';
         <h1>Manage Players</h1>
         <p>View and edit all registered player profiles</p>
     </div>
-    <a href="/table-tennis-system/admin/manage_users.php" class="btn btn-outline">
+    <a href="/TournamentHQ/admin/manage_users.php" class="btn btn-outline">
         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
         Add via User Manager
     </a>
@@ -71,18 +64,18 @@ require_once __DIR__ . '/../includes/header.php';
         <div class="table-responsive">
             <table class="data-table" id="playersTable">
                 <thead>
-                    <tr><th>#</th><th>Player</th><th>Club</th><th>Gender</th><th>Place</th><th>W/L</th><th>Actions</th></tr>
+                    <tr><th>#</th><th>Player</th><th>Club</th><th>Gender</th><th>Place</th><th>Actions</th></tr>
                 </thead>
                 <tbody>
                 <?php if (empty($players)): ?>
-                    <tr><td colspan="8"><div class="empty-state"><div class="empty-icon">🏓</div><p>No players found</p></div></td></tr>
+                    <tr><td colspan="7"><div class="empty-state"><p>No players found</p></div></td></tr>
                 <?php else: ?>
                 <?php foreach ($players as $i => $p): ?>
                 <tr>
                     <td class="text-muted text-sm"><?= $p['id'] ?></td>
                     <td>
                         <div class="player-cell">
-                            <div class="p-avatar"><?= strtoupper(substr($p['first_name'],0,1)) ?></div>
+                            <div class="p-avatar" style="font-size: 18px;"><?= getPlayerGenderAvatar($p['gender'] ?? null, false) ?></div>
                             <div>
                                 <div class="p-name"><?= e($p['first_name'].' '.$p['last_name']) ?></div>
                                 <div class="p-club"><?= e($p['username']) ?></div>
@@ -92,7 +85,6 @@ require_once __DIR__ . '/../includes/header.php';
                     <td class="text-sm"><?= e($p['club'] ?: '—') ?></td>
                     <td><span class="badge badge-<?= e($p['gender']) ?>"><?= ucfirst(e($p['gender'])) ?></span></td>
                     <td class="text-sm"><?= e($p['nationality'] ?: '—') ?></td>
-                    <td class="text-sm"><span class="text-success"><?= $p['wins'] ?>W</span> / <span class="text-muted"><?= $p['losses'] ?>L</span></td>
                     <td>
                         <div class="btn-group">
                             <button class="btn btn-ghost btn-sm"
@@ -178,7 +170,7 @@ function openEditPlayer(p) {
     document.getElementById('editPlayerId').value   = p.id;
     document.getElementById('editFirstName').value  = p.first_name;
     document.getElementById('editLastName').value   = p.last_name;
-    document.getElementById('editDob').value        = p.date_of_birth || '';
+    document.getElementById('editDob').value        = (p.date_of_birth && p.date_of_birth !== '0000-00-00') ? String(p.date_of_birth).substring(0, 10) : '';
     document.getElementById('editGender').value     = p.gender;
     document.getElementById('editClub').value       = p.club || '';
     document.getElementById('editNationality').value = p.nationality || '';

@@ -25,7 +25,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $result = completePasswordReset($token, $password);
         if ($result['ok']) {
             setFlash('success', $result['message']);
-            header('Location: /table-tennis-system/index.php');
+            header('Location: /TournamentHQ/index.php');
             exit;
         }
         $error = $result['message'];
@@ -36,7 +36,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 if ($token === '') {
     authPublicHeader('Reset password', '');
     echo '<div class="flash-message flash-error" style="margin-bottom:16px">Missing reset link. Request a new one from the forgot password page.</div>';
-    echo '<a href="/table-tennis-system/forgot-password.php" class="auth-back-link">Request reset link</a>';
+    echo '<a href="/TournamentHQ/forgot-password.php" class="auth-back-link">Request reset link</a>';
     authPublicFooter();
     exit;
 }
@@ -44,7 +44,7 @@ if ($token === '') {
 if (!$validToken && $_SERVER['REQUEST_METHOD'] !== 'POST') {
     authPublicHeader('Reset password', '');
     echo '<div class="flash-message flash-error" style="margin-bottom:16px">This reset link is invalid or has expired. Please request a new one.</div>';
-    echo '<a href="/table-tennis-system/forgot-password.php" class="auth-back-link">Request new link</a>';
+    echo '<a href="/TournamentHQ/forgot-password.php" class="auth-back-link">Request new link</a>';
     authPublicFooter();
     exit;
 }
@@ -70,7 +70,7 @@ if ($error): ?>
     </button>
 </form>
 
-<a href="/table-tennis-system/index.php" class="auth-back-link">
+<a href="/TournamentHQ/index.php" class="auth-back-link">
     <i data-lucide="arrow-left" style="width:14px;height:14px"></i> Back to sign in
 </a>
 

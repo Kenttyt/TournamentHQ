@@ -3,11 +3,12 @@
  * Password reset (forgot password)
  */
 require_once __DIR__ . '/../../config/database.php';
+require_once __DIR__ . '/../../includes/mailer.php';
 
 function appBaseUrl(): string {
     $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
     $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
-    return $scheme . '://' . $host . '/table-tennis-system';
+    return $scheme . '://' . $host . '/TournamentHQ';
 }
 
 function isLocalAppHost(): bool {
@@ -51,42 +52,79 @@ function buildPasswordResetUrl(string $token): string {
     return appBaseUrl() . '/reset-password.php?token=' . urlencode($token);
 }
 
-function sendPasswordResetEmail(string $toEmail, string $username, string $resetUrl): bool {
-    $subject = 'Reset your password — TT Tournament Manager';
-    $body = "Hello " . $username . ",\r\n\r\n"
-        . "We received a request to reset your password.\r\n\r\n"
-        . "Open this link (valid for 1 hour):\r\n"
-        . $resetUrl . "\r\n\r\n"
-        . "If you did not request this, you can ignore this email.\r\n\r\n"
-        . "— TT Tournament Manager";
+/**
+ * Generate a random readable temporary password
+ */
+function generateTemporaryPassword(int $length = 10): string {
+    $chars = 'abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    $password = '';
+    $max = strlen($chars) - 1;
+    for ($i = 0; $i < $length; $i++) {
+        $password .= $chars[random_int(0, $max)];
+    }
+    return $password;
+}
 
-    $from = 'noreply@localhost';
-    $headers = "From: TT Tournament Manager <{$from}>\r\n"
-        . "Reply-To: {$from}\r\n"
-        . "Content-Type: text/plain; charset=UTF-8\r\n"
-        . "X-Mailer: PHP/" . phpversion();
+function sendPasswordResetEmail(string $toEmail, string $username, string $tempPassword): bool {
+    $n8n = load_n8n_config();
+    if (!$n8n) {
+        return false;
+    }
 
-    return @mail($toEmail, $subject, $body, $headers);
+    $payload = json_encode([
+        'email'      => $toEmail,
+        'username'   => $username,
+        'temp_password' => $tempPassword,
+        'action'     => 'password_reset',
+    ]);
+
+    $headers = ['Content-Type: application/json', 'Accept: application/json'];
+    if (!empty($n8n['secret'])) {
+        $headers[] = 'X-Webhook-Secret: ' . $n8n['secret'];
+    }
+
+    $ch = curl_init($n8n['webhook_url']);
+    curl_setopt_array($ch, [
+        CURLOPT_POST           => true,
+        CURLOPT_POSTFIELDS     => $payload,
+        CURLOPT_HTTPHEADER     => $headers,
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_TIMEOUT        => 15,
+        CURLOPT_SSL_VERIFYPEER => true,
+    ]);
+
+    $resp = curl_exec($ch);
+    $code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+
+    return ($resp !== false && $code >= 200 && $code < 300);
 }
 
 /**
- * Request reset. Always returns generic success message (no account enumeration).
+ * Request reset. Automatically updates user's password to a temporary one and sends it.
  */
 function requestPasswordReset(string $emailOrUsername): array {
-    $generic = 'If an account exists for that email or username, password reset instructions have been sent.';
+    $generic = 'If an account exists for that email or username, a temporary password has been sent to the registered email.';
 
     $user = findUserForPasswordReset($emailOrUsername);
     if (!$user) {
         return ['ok' => true, 'message' => $generic, 'dev_link' => null];
     }
 
-    $token = createPasswordResetToken((int) $user['id']);
-    $resetUrl = buildPasswordResetUrl($token);
-    $mailed = sendPasswordResetEmail($user['email'], $user['username'], $resetUrl);
+    // Generate a temporary password
+    $tempPassword = generateTemporaryPassword();
+    $hashedPassword = password_hash($tempPassword, PASSWORD_DEFAULT);
+
+    // Save temporary password directly to the database
+    $stmt = db()->prepare("UPDATE users SET password = ? WHERE id = ?");
+    $stmt->execute([$hashedPassword, (int)$user['id']]);
+
+    // Send the temporary password via n8n
+    $mailed = sendPasswordResetEmail($user['email'], $user['username'], $tempPassword);
 
     $devLink = null;
     if (!$mailed && isLocalAppHost()) {
-        $devLink = $resetUrl;
+        $devLink = $tempPassword;
     }
 
     return ['ok' => true, 'message' => $generic, 'dev_link' => $devLink];

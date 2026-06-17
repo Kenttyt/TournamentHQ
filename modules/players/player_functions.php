@@ -37,27 +37,93 @@ function getPlayerByUserId(int $userId): ?array {
     return $stmt->fetch() ?: null;
 }
 
+/** Format a DB date for HTML <input type="date"> (requires Y-m-d). */
+function playerDateInputValue(?string $date): string {
+    if ($date === null || $date === '' || $date === '0000-00-00') {
+        return '';
+    }
+    if (preg_match('/^(\d{4}-\d{2}-\d{2})/', (string) $date, $m)) {
+        return $m[1];
+    }
+    $ts = strtotime((string) $date);
+    return $ts !== false ? date('Y-m-d', $ts) : '';
+}
+
+/** Normalize profile fields from POST before save. */
+function normalizePlayerProfileData(array $data): array {
+    $dob = trim($data['date_of_birth'] ?? '');
+    if ($dob !== '' && !preg_match('/^\d{4}-\d{2}-\d{2}$/', $dob)) {
+        $dob = playerDateInputValue($dob);
+    }
+
+    $club = trim($data['club'] ?? '');
+    $place = trim($data['nationality'] ?? '');
+
+    return [
+        'first_name'    => trim($data['first_name'] ?? ''),
+        'last_name'     => trim($data['last_name'] ?? ''),
+        'date_of_birth' => $dob,
+        'gender'        => in_array($data['gender'] ?? '', ['male', 'female', 'other'], true)
+            ? $data['gender']
+            : 'male',
+        'club'          => $club,
+        'nationality'   => $place,
+    ];
+}
+
 function createPlayer(array $data): int {
+    $normalized = normalizePlayerProfileData($data);
+    $dob = $normalized['date_of_birth'];
+    $club = $normalized['club'];
+    $place = $normalized['nationality'];
+
     $stmt = db()->prepare(
         "INSERT INTO players (user_id, first_name, last_name, date_of_birth, gender, club, nationality)
          VALUES (?, ?, ?, ?, ?, ?, ?)"
     );
     $stmt->execute([
-        $data['user_id'], $data['first_name'], $data['last_name'],
-        $data['date_of_birth'] ?: null, $data['gender'], $data['club'], $data['nationality'],
+        (int) $data['user_id'],
+        $normalized['first_name'],
+        $normalized['last_name'],
+        $dob !== '' ? $dob : null,
+        $normalized['gender'],
+        $club !== '' ? $club : null,
+        $place !== '' ? $place : null,
     ]);
     return (int) db()->lastInsertId();
 }
 
 function updatePlayer(int $id, array $data): bool {
+    $id = (int) $id;
+    if ($id <= 0) {
+        return false;
+    }
+
+    $dob = trim($data['date_of_birth'] ?? '');
+    $club = trim($data['club'] ?? '');
+    $place = trim($data['nationality'] ?? '');
+
     $stmt = db()->prepare(
         "UPDATE players SET first_name=?, last_name=?, date_of_birth=?, gender=?, club=?, nationality=?
          WHERE id=?"
     );
-    return $stmt->execute([
-        $data['first_name'], $data['last_name'], $data['date_of_birth'] ?: null,
-        $data['gender'], $data['club'], $data['nationality'], $id
+    $stmt->execute([
+        $data['first_name'],
+        $data['last_name'],
+        $dob !== '' ? $dob : null,
+        $data['gender'],
+        $club !== '' ? $club : null,
+        $place !== '' ? $place : null,
+        $id,
     ]);
+
+    if ($stmt->rowCount() > 0) {
+        return true;
+    }
+
+    $check = db()->prepare('SELECT id FROM players WHERE id = ? LIMIT 1');
+    $check->execute([$id]);
+    return (bool) $check->fetchColumn();
 }
 
 function deletePlayer(int $id): bool {
@@ -108,4 +174,21 @@ function getPlayerMatches(int $playerId, int $limit = 20): array {
     );
     $stmt->execute([$playerId, $playerId, $limit]);
     return $stmt->fetchAll();
+}
+
+function getPlayerGenderAvatar(?string $gender, bool $isGuest = false): string {
+    if ($isGuest) {
+        return '👤';
+    }
+    $gender = strtolower($gender ?? '');
+    if ($gender === 'male') {
+        return '👨';
+    }
+    if ($gender === 'female') {
+        return '👩';
+    }
+    if ($gender === 'other') {
+        return '🏳️‍🌈';
+    }
+    return '👤';
 }

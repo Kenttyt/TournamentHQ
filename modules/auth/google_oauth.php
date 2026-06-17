@@ -25,23 +25,24 @@ function googleOAuthRedirectUri(): string {
     }
     $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
     $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
-    $base = rtrim(dirname($_SERVER['SCRIPT_NAME'] ?? '/table-tennis-system'), '/\\');
+    $base = rtrim(dirname($_SERVER['SCRIPT_NAME'] ?? '/TournamentHQ'), '/\\');
     if (str_ends_with($base, '/modules/auth')) {
         $base = dirname(dirname($base));
     }
     return $scheme . '://' . $host . $base . '/google-callback.php';
 }
 
-function startGoogleOAuth(string $mode = 'login'): void {
+function startGoogleOAuth(string $mode = 'login', string $role = ''): void {
     if (!isGoogleOAuthConfigured()) {
         setFlash('danger', 'Google sign-in is not configured. Add your Client ID and Secret in config/google.local.php (see config/google.local.php.example).');
-        header('Location: ' . ($mode === 'register' ? '/table-tennis-system/register.php' : '/table-tennis-system/index.php'));
+        header('Location: ' . ($mode === 'register' ? '/TournamentHQ/register.php' : '/TournamentHQ/index.php'));
         exit;
     }
 
     $state = bin2hex(random_bytes(16));
     $_SESSION['google_oauth_state'] = $state;
     $_SESSION['google_oauth_mode'] = $mode;
+    $_SESSION['google_oauth_role'] = $role;
 
     $params = [
         'response_type' => 'code',
@@ -142,11 +143,16 @@ function getGoogleOAuthMode(): string {
     return $mode === 'register' ? 'register' : 'login';
 }
 
+function getGoogleOAuthRole(): string {
+    $role = $_SESSION['google_oauth_role'] ?? '';
+    return $role === 'organizer' ? 'organizer' : '';
+}
+
 function googleOAuthReturnUrl(?string $mode = null): string {
     $mode = $mode ?? getGoogleOAuthMode();
-    return $mode === 'register' ? '/table-tennis-system/register.php' : '/table-tennis-system/index.php';
+    return $mode === 'register' ? '/TournamentHQ/register.php' : '/TournamentHQ/index.php';
 }
 
 function clearGoogleOAuthSession(): void {
-    unset($_SESSION['google_oauth_mode'], $_SESSION['google_oauth_state']);
+    unset($_SESSION['google_oauth_mode'], $_SESSION['google_oauth_state'], $_SESSION['google_oauth_role']);
 }

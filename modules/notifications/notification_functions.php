@@ -191,7 +191,7 @@ function upsertSubmitterTournamentNotification(
     $type = $approved ? 'registration_approved' : 'registration_declined';
     $title = $approved ? 'Registration approved' : 'Registration declined';
     $tLabel = tournamentNotificationLabel($t);
-    $link = '/table-tennis-system/player/index.php';
+    $link = '/TournamentHQ/player/index.php';
 
     $stmt = db()->prepare(
         "SELECT id, message FROM notifications
@@ -273,7 +273,7 @@ function getLiveRegistrationAlerts(int $userId, string $role): array {
                 'type'       => 'registration_pending',
                 'title'      => 'Approval needed',
                 'message'    => $n . ' pending registration' . ($n === 1 ? '' : 's') . ' for ' . $row['name'],
-                'link'       => '/table-tennis-system/organizer/tournaments.php',
+                'link'       => '/TournamentHQ/organizer/tournaments.php',
                 'is_read'    => false,
                 'created_at' => date('Y-m-d H:i:s'),
                 'live'       => true,
@@ -297,7 +297,7 @@ function getLiveRegistrationAlerts(int $userId, string $role): array {
                 'type'       => 'registration_pending',
                 'title'      => 'Approval needed',
                 'message'    => $n . ' pending registration' . ($n === 1 ? '' : 's') . ' for ' . $row['name'],
-                'link'       => '/table-tennis-system/admin/manage_tournaments.php',
+                'link'       => '/TournamentHQ/admin/manage_tournaments.php',
                 'is_read'    => false,
                 'created_at' => date('Y-m-d H:i:s'),
                 'live'       => true,
@@ -324,7 +324,7 @@ function getLiveRegistrationAlerts(int $userId, string $role): array {
                     'type'       => 'registration_submitted',
                     'title'      => 'Awaiting approval',
                     'message'    => 'Players you submitted for ' . $row['name'] . ' are pending organizer confirmation.',
-                    'link'       => '/table-tennis-system/player/index.php',
+                    'link'       => '/TournamentHQ/player/index.php',
                     'is_read'    => false,
                     'created_at' => date('Y-m-d H:i:s'),
                     'live'       => true,
@@ -373,7 +373,7 @@ function notifyAllPlayersNewTournament(int $tournamentId): void {
             'tournament_new',
             'New tournament available',
             $message,
-            '/table-tennis-system/player/index.php'
+            '/TournamentHQ/player/index.php'
         );
     }
 }
@@ -392,7 +392,7 @@ function notifyOrganizerRegistrationRequest(int $tournamentId, int $playerId, in
         'registration_pending',
         'New registration request',
         $name . ' submitted ' . $n . ' player' . ($n === 1 ? '' : 's') . ' for ' . $t['name'] . ' with payment proof. Review payment and approve.',
-        '/table-tennis-system/organizer/tournaments.php'
+        '/TournamentHQ/organizer/tournaments.php'
     );
 }
 

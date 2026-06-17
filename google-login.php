@@ -11,4 +11,5 @@ if (isLoggedIn()) {
 }
 
 $mode = ($_GET['mode'] ?? 'login') === 'register' ? 'register' : 'login';
-startGoogleOAuth($mode);
+$role = ($_GET['role'] ?? '') === 'organizer' ? 'organizer' : '';
+startGoogleOAuth($mode, $role);

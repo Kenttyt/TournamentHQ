@@ -189,11 +189,88 @@ function updateTournament(int $id, array $data): bool {
         "UPDATE tournaments SET name=?, category=?, description=?, format=?, status=?, max_players=?,
          start_date=?, end_date=?, venue=?, prize_pool=?, prize_champion=?, prize_2nd=?, prize_3rd=?, prize_4th=?, registration_fee=? WHERE id=?"
     );
-    return $stmt->execute([
+    $ok = $stmt->execute([
         $data['name'], $data['category'] ?? 'Open Singles', $data['description'], $data['format'], $data['status'],
         $data['max_players'], $data['start_date'], $data['end_date'] ?: null,
         $data['venue'], $prizes['prize_pool'], $prizes['prize_champion'], $prizes['prize_2nd'], $prizes['prize_3rd'], $prizes['prize_4th'], $registrationFee, $id
     ]);
+    // Schedule proof deletion 7 days from now when tournament is completed
+    if ($ok && ($data['status'] ?? '') === 'completed') {
+        scheduleProofDeletion($id);
+    }
+    return $ok;
+}
+
+/**
+ * Sets proofs_delete_after to NOW + 7 days for the given tournament.
+ * Safe to call multiple times — only updates if not already scheduled.
+ */
+function scheduleProofDeletion(int $tournamentId): void {
+    try {
+        $chk = db()->prepare("SELECT proofs_delete_after FROM tournaments WHERE id = ? LIMIT 1");
+        $chk->execute([$tournamentId]);
+        $row = $chk->fetch();
+        // Only schedule once (don't override if already set)
+        if ($row && $row['proofs_delete_after'] === null) {
+            $deleteAt = date('Y-m-d H:i:s', strtotime('+7 days'));
+            db()->prepare("UPDATE tournaments SET proofs_delete_after = ? WHERE id = ?")
+                ->execute([$deleteAt, $tournamentId]);
+        }
+    } catch (Throwable $e) {
+        // Column may not exist yet on very old installs — silently skip
+    }
+}
+
+/**
+ * Deletes all payment proof files for a tournament from disk and clears
+ * the payment_proof_path columns in tournament_guests.
+ * Called by the cleanup script.
+ */
+function deleteAllTournamentProofs(int $tournamentId): int {
+    require_once __DIR__ . '/../uploads/payment_proof.php';
+    $stmt = db()->prepare(
+        "SELECT DISTINCT payment_proof_path FROM tournament_guests
+         WHERE tournament_id = ? AND payment_proof_path IS NOT NULL AND payment_proof_path != ''"
+    );
+    $stmt->execute([$tournamentId]);
+    $paths = $stmt->fetchAll(PDO::FETCH_COLUMN);
+    $deleted = 0;
+    foreach ($paths as $path) {
+        deletePaymentProofFile($path);
+        $deleted++;
+    }
+    // Clear the paths from DB so they don't show broken links
+    db()->prepare(
+        "UPDATE tournament_guests SET payment_proof_path = NULL, payment_proof_original_name = NULL
+         WHERE tournament_id = ?"
+    )->execute([$tournamentId]);
+    // Mark tournament as cleaned up
+    db()->prepare("UPDATE tournaments SET proofs_delete_after = NULL WHERE id = ?")
+        ->execute([$tournamentId]);
+    return $deleted;
+}
+
+/**
+ * Finds all tournaments whose proofs_delete_after has passed and deletes their proof files.
+ * Returns a summary array for logging.
+ */
+function cleanupExpiredProofs(): array {
+    $stmt = db()->prepare(
+        "SELECT id, name FROM tournaments
+         WHERE proofs_delete_after IS NOT NULL AND proofs_delete_after <= NOW()"
+    );
+    $stmt->execute();
+    $due = $stmt->fetchAll();
+    $results = [];
+    foreach ($due as $t) {
+        $count = deleteAllTournamentProofs((int) $t['id']);
+        $results[] = [
+            'tournament_id'   => (int) $t['id'],
+            'tournament_name' => $t['name'],
+            'files_deleted'   => $count,
+        ];
+    }
+    return $results;
 }
 
 function deleteTournament(int $id): bool {
@@ -335,15 +412,38 @@ function addTournamentGuest(
     string $lastName,
     string $status = 'pending',
     ?string $paymentProofPath = null,
-    ?string $paymentProofOriginalName = null
+    ?string $paymentProofOriginalName = null,
+    ?string $club = null,
+    ?string $nationality = null
 ): bool {
+    if ($registeredByPlayerId && (($club === null || $club === '') || ($nationality === null || $nationality === ''))) {
+        $submitterStmt = db()->prepare('SELECT club, nationality FROM players WHERE id = ? LIMIT 1');
+        $submitterStmt->execute([$registeredByPlayerId]);
+        $submitter = $submitterStmt->fetch();
+        if ($submitter) {
+            if ($club === null || $club === '') {
+                $club = trim($submitter['club'] ?? '') ?: null;
+            }
+            if ($nationality === null || $nationality === '') {
+                $nationality = trim($submitter['nationality'] ?? '') ?: null;
+            }
+        }
+    }
+
     $stmt = db()->prepare(
-        "INSERT INTO tournament_guests (tournament_id, registered_by_player_id, first_name, last_name, registration_status, payment_proof_path, payment_proof_original_name)
-         VALUES (?, ?, ?, ?, ?, ?, ?)"
+        "INSERT INTO tournament_guests (tournament_id, registered_by_player_id, first_name, last_name, club, nationality, registration_status, payment_proof_path, payment_proof_original_name)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
     );
     return $stmt->execute([
-        $tournamentId, $registeredByPlayerId, $firstName, $lastName, $status,
-        $paymentProofPath, $paymentProofOriginalName,
+        $tournamentId,
+        $registeredByPlayerId,
+        $firstName,
+        $lastName,
+        $club,
+        $nationality,
+        $status,
+        $paymentProofPath,
+        $paymentProofOriginalName,
     ]);
 }
 
@@ -360,7 +460,7 @@ function isTournamentGuestRegistered(int $tournamentId, string $firstName, strin
 
 function getSubmitterTournamentGuests(int $tournamentId, int $submitterPlayerId): array {
     $stmt = db()->prepare(
-        "SELECT id, first_name, last_name, registration_status, created_at, payment_proof_path, payment_proof_original_name
+        "SELECT id, first_name, last_name, club, nationality, registration_status, created_at, payment_proof_path, payment_proof_original_name
          FROM tournament_guests
          WHERE tournament_id = ? AND registered_by_player_id = ?
          ORDER BY id ASC"
@@ -372,7 +472,7 @@ function getSubmitterTournamentGuests(int $tournamentId, int $submitterPlayerId)
 /** Pending guest registrations grouped by submitter (for organizer approval + payment proof) */
 function getPendingRegistrationGroups(int $tournamentId): array {
     $stmt = db()->prepare(
-        "SELECT tg.id AS reg_id, tg.first_name, tg.last_name, tg.created_at AS registered_at,
+        "SELECT tg.id AS reg_id, tg.first_name, tg.last_name, tg.club, tg.nationality, tg.created_at AS registered_at,
                 tg.registered_by_player_id, tg.payment_proof_path, tg.payment_proof_original_name,
                 p.first_name AS reg_first, p.last_name AS reg_last
          FROM tournament_guests tg
@@ -396,10 +496,12 @@ function getPendingRegistrationGroups(int $tournamentId): array {
             ];
         }
         $groups[$key]['players'][] = [
-            'reg_id'     => (int) $row['reg_id'],
-            'reg_type'   => 'guest',
-            'first_name' => $row['first_name'],
-            'last_name'  => $row['last_name'],
+            'reg_id'      => (int) $row['reg_id'],
+            'reg_type'    => 'guest',
+            'first_name'  => $row['first_name'],
+            'last_name'   => $row['last_name'],
+            'club'        => $row['club'] ?? '',
+            'nationality' => $row['nationality'] ?? '',
         ];
         if (!empty($row['payment_proof_path']) && empty($groups[$key]['payment_proof_path'])) {
             $groups[$key]['payment_proof_path'] = $row['payment_proof_path'];
@@ -415,12 +517,14 @@ function getTournamentApprovedEntrants(int $tournamentId): array {
     foreach (getTournamentPlayers($tournamentId, 'approved') as $p) {
         $entrants[] = [
             'name'   => trim($p['first_name'] . ' ' . $p['last_name']),
+            'club'   => trim($p['club'] ?? ''),
             'status' => 'approved',
         ];
     }
     foreach (getTournamentGuests($tournamentId, 'approved') as $g) {
         $entrants[] = [
             'name'   => trim($g['first_name'] . ' ' . $g['last_name']),
+            'club'   => trim($g['club'] ?? ''),
             'status' => 'approved',
         ];
     }
@@ -601,9 +705,10 @@ function getTournamentEntrants(int $tournamentId): array {
             'id'         => (int) $g['id'],
             'first_name' => $g['first_name'],
             'last_name'  => $g['last_name'],
-            'club'       => $g['club'] ?? '',
-            'seed'       => null,
-            'is_guest'   => true,
+            'club'        => $g['club'] ?? '',
+            'nationality' => $g['nationality'] ?? '',
+            'seed'        => null,
+            'is_guest'    => true,
         ];
     }
     return $entrants;

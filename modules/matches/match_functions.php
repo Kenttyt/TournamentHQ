@@ -105,8 +105,8 @@ function parseParticipantKey(string $key): ?array {
     return null;
 }
 
-function recordMatchResult(int $matchId, int $winnerId, int $p1Score, int $p2Score): bool {
-    return recordBracketMatchResult($matchId, 'player:' . $winnerId, $p1Score, $p2Score);
+function recordMatchResult(int $matchId, int $winnerId, int $p1Score, int $p2Score, ?string $setScores = null): bool {
+    return recordBracketMatchResult($matchId, 'player:' . $winnerId, $p1Score, $p2Score, $setScores);
 }
 
 function matchWinnerKey(array $match): ?string {
@@ -229,8 +229,17 @@ function processKnockoutByeMatch(int $matchId): void {
         $matchId
     ]);
 
-    // Advance winner to the next round
     $tournamentId  = (int) $match['tournament_id'];
+    $tournament = getTournamentById($tournamentId);
+    if ($tournament && $tournament['format'] === 'double_elimination') {
+        $p1Key = matchParticipantKey($match, 1);
+        $p2Key = matchParticipantKey($match, 2);
+        $loserKey = ($winnerKey === $p1Key) ? $p2Key : $p1Key;
+        advanceDoubleElimination($match, $winnerKey, $loserKey);
+        return;
+    }
+
+    // Advance winner to the next round
     $currentRound  = (int) $match['round'];
     $nextRound     = $currentRound + 1;
 
@@ -275,7 +284,7 @@ function processKnockoutByeMatch(int $matchId): void {
     processKnockoutByeMatch($nextMatchId);
 }
 
-function recordBracketMatchResult(int $matchId, string $winnerKey, int $p1Score, int $p2Score): bool {
+function recordBracketMatchResult(int $matchId, string $winnerKey, int $p1Score, int $p2Score, ?string $setScores = null): bool {
     $winner = parseParticipantKey($winnerKey);
     if (!$winner) {
         return false;
@@ -298,15 +307,21 @@ function recordBracketMatchResult(int $matchId, string $winnerKey, int $p1Score,
     $winnerGuestId  = $winner['type'] === 'guest' ? $winner['id'] : null;
 
     $stmt = db()->prepare(
-        "UPDATE matches SET winner_id = ?, winner_guest_id = ?, player1_score = ?, player2_score = ?, status = 'completed' WHERE id = ?"
+        "UPDATE matches SET winner_id = ?, winner_guest_id = ?, player1_score = ?, player2_score = ?, set_scores = ?, status = 'completed' WHERE id = ?"
     );
-    $ok = $stmt->execute([$winnerPlayerId, $winnerGuestId, $p1Score, $p2Score, $matchId]);
+    $ok = $stmt->execute([$winnerPlayerId, $winnerGuestId, $p1Score, $p2Score, $setScores, $matchId]);
 
     if ($ok) {
         $p1Key = matchParticipantKey($match, 1);
         $p2Key = matchParticipantKey($match, 2);
         $loserKey = ($winnerKey === $p1Key) ? $p2Key : $p1Key;
         adjustPlayerStatsForMatchResult($winnerKey, $loserKey, 1);
+        
+        $tournament = getTournamentById((int) $match['tournament_id']);
+        if ($tournament && $tournament['format'] === 'double_elimination') {
+            advanceDoubleElimination($match, $winnerKey, $loserKey);
+            return $ok;
+        }
         
         // If it is a knockout stage match (round > 1), automatically advance the winner to the next round TBD match
         if ($match['round'] > 1) {
@@ -352,6 +367,44 @@ function recordBracketMatchResult(int $matchId, string $winnerKey, int $p1Score,
                     // Check if the next match is now a bye (only one player, no opponent) and auto-advance
                     processKnockoutByeMatch($nextMatchId);
                 }
+                
+                // 3rd Place Playoff: if this is a semifinal match (2 matches in current round,
+                // 1 match in next round = Final), place the loser into round 30
+                if (count($currMatches) === 2 && count($nextMatches) === 1) {
+                    $stmt3rd = db()->prepare("SELECT id FROM matches WHERE tournament_id = ? AND round = 30 ORDER BY id ASC LIMIT 1");
+                    $stmt3rd->execute([$tournamentId]);
+                    $thirdPlaceMatchId = $stmt3rd->fetchColumn();
+                    
+                    if ($thirdPlaceMatchId) {
+                        // Determine loser identity
+                        $loserPlayerId = null;
+                        $loserGuestId = null;
+                        $parts = explode(':', $loserKey);
+                        if ($parts[0] === 'player') {
+                            $loserPlayerId = (int) $parts[1];
+                        } else {
+                            $loserGuestId = (int) $parts[1];
+                        }
+                        
+                        // Slot 1 for first semifinal loser, slot 2 for second
+                        $isSlot1_3rd = ($matchNo % 2 !== 0);
+                        if ($loserPlayerId) {
+                            if ($isSlot1_3rd) {
+                                $stmtUpd3 = db()->prepare("UPDATE matches SET player1_id = ?, player1_guest_id = NULL WHERE id = ?");
+                            } else {
+                                $stmtUpd3 = db()->prepare("UPDATE matches SET player2_id = ?, player2_guest_id = NULL WHERE id = ?");
+                            }
+                            $stmtUpd3->execute([$loserPlayerId, $thirdPlaceMatchId]);
+                        } elseif ($loserGuestId) {
+                            if ($isSlot1_3rd) {
+                                $stmtUpd3 = db()->prepare("UPDATE matches SET player1_id = NULL, player1_guest_id = ? WHERE id = ?");
+                            } else {
+                                $stmtUpd3 = db()->prepare("UPDATE matches SET player2_id = NULL, player2_guest_id = ? WHERE id = ?");
+                            }
+                            $stmtUpd3->execute([$loserGuestId, $thirdPlaceMatchId]);
+                        }
+                    }
+                }
             }
         }
     }
@@ -362,11 +415,12 @@ function recordBracketMatchResult(int $matchId, string $winnerKey, int $p1Score,
 
 function updateMatchResult(int $matchId, array $data): bool {
     $stmt = db()->prepare(
-        "UPDATE matches SET winner_id=?, player1_score=?, player2_score=?, status=?,
+        "UPDATE matches SET winner_id=?, player1_score=?, player2_score=?, set_scores=?, status=?,
          match_date=?, table_number=?, notes=? WHERE id=?"
     );
     return $stmt->execute([
         $data['winner_id'] ?: null, $data['player1_score'], $data['player2_score'],
+        $data['set_scores'] ?? null,
         $data['status'], $data['match_date'] ?: null,
         $data['table_number'] ?? 1, $data['notes'] ?? null, $matchId
     ]);
@@ -424,4 +478,200 @@ function matchWinnerIsSlot(array $match, int $slot): bool {
         }
     }
     return false;
+}
+
+function advanceDoubleElimination(array $match, string $winnerKey, string $loserKey): void {
+    $tournamentId = (int)$match['tournament_id'];
+    $currentRound = (int)$match['round'];
+    $matchId = (int)$match['id'];
+    
+    // Parse winner and loser keys
+    $winner = parseParticipantKey($winnerKey);
+    $loser = parseParticipantKey($loserKey);
+    if (!$winner) return;
+
+    $winnerPlayerId = $winner['type'] === 'player' ? $winner['id'] : null;
+    $winnerGuestId  = $winner['type'] === 'guest'  ? $winner['id'] : null;
+    $loserPlayerId  = $loser ? ($loser['type'] === 'player' ? $loser['id'] : null) : null;
+    $loserGuestId   = $loser ? ($loser['type'] === 'guest'  ? $loser['id'] : null) : null;
+
+    $roundName = $match['round_name'] ?? '';
+
+    // helper to update a match slot
+    $updateSlot = function(int $targetMatchId, int $slot, ?int $playerId, ?int $guestId) {
+        if ($slot === 1) {
+            $stmt = db()->prepare("UPDATE matches SET player1_id = ?, player1_guest_id = ? WHERE id = ?");
+        } else {
+            $stmt = db()->prepare("UPDATE matches SET player2_id = ?, player2_guest_id = ? WHERE id = ?");
+        }
+        $stmt->execute([$playerId, $guestId, $targetMatchId]);
+        processKnockoutByeMatch($targetMatchId);
+    };
+
+    if (strpos($roundName, 'Winners') === 0) {
+        // --- WINNERS BRACKET ---
+        // 1. Advance winner in Winners Bracket
+        $stmtCurr = db()->prepare("SELECT id FROM matches WHERE tournament_id = ? AND round = ? ORDER BY id ASC");
+        $stmtCurr->execute([$tournamentId, $currentRound]);
+        $currMatches = $stmtCurr->fetchAll(PDO::FETCH_COLUMN);
+        
+        $pos = array_search($matchId, $currMatches);
+        if ($pos !== false) {
+            $matchNo = $pos + 1;
+            
+            // Check if current Winners round is Winners Final (only 1 match in the round)
+            if (count($currMatches) === 1) {
+                // Winners Champion goes to Grand Finals Match 1, Slot 1
+                $stmtGF = db()->prepare("SELECT id FROM matches WHERE tournament_id = ? AND round = 20 LIMIT 1");
+                $stmtGF->execute([$tournamentId]);
+                $gfId = $stmtGF->fetchColumn();
+                if ($gfId) {
+                    $updateSlot((int)$gfId, 1, $winnerPlayerId, $winnerGuestId);
+                }
+                
+                // Loser drops to Losers Final
+                $stmtMaxLosers = db()->prepare("SELECT MAX(round) FROM matches WHERE tournament_id = ? AND round_name LIKE 'Losers%'");
+                $stmtMaxLosers->execute([$tournamentId]);
+                $maxLosersRound = (int)$stmtMaxLosers->fetchColumn();
+                if ($maxLosersRound) {
+                    $stmtLF = db()->prepare("SELECT id FROM matches WHERE tournament_id = ? AND round = ? ORDER BY id ASC LIMIT 1");
+                    $stmtLF->execute([$tournamentId, $maxLosersRound]);
+                    $lfId = $stmtLF->fetchColumn();
+                    if ($lfId) {
+                        $updateSlot((int)$lfId, 2, $loserPlayerId, $loserGuestId);
+                    }
+                }
+            } else {
+                // Normal Winners Round -> next Winners Round
+                $nextRound = $currentRound + 1;
+                $nextMatchNo = (int) ceil($matchNo / 2);
+                $isSlot1 = ($matchNo % 2 !== 0);
+                
+                $stmtNext = db()->prepare("SELECT id FROM matches WHERE tournament_id = ? AND round = ? ORDER BY id ASC");
+                $stmtNext->execute([$tournamentId, $nextRound]);
+                $nextMatches = $stmtNext->fetchAll(PDO::FETCH_COLUMN);
+                
+                if (isset($nextMatches[$nextMatchNo - 1])) {
+                    $nextMatchId = (int)$nextMatches[$nextMatchNo - 1];
+                    $updateSlot($nextMatchId, $isSlot1 ? 1 : 2, $winnerPlayerId, $winnerGuestId);
+                }
+
+                // Loser drops to Losers Bracket!
+                $w = $currentRound - 1; // Winners round index (1-based)
+                if ($w === 1) {
+                    // Winners Round 1 losers go to Losers Round 1a (round 12)
+                    $targetRound = 12;
+                    $targetMatchNo = (int) ceil($matchNo / 2);
+                    $isTargetSlot1 = ($matchNo % 2 !== 0);
+                    
+                    $stmtL = db()->prepare("SELECT id FROM matches WHERE tournament_id = ? AND round = ? ORDER BY id ASC");
+                    $stmtL->execute([$tournamentId, $targetRound]);
+                    $lMatches = $stmtL->fetchAll(PDO::FETCH_COLUMN);
+                    if (isset($lMatches[$targetMatchNo - 1])) {
+                        $lMatchId = (int)$lMatches[$targetMatchNo - 1];
+                        $updateSlot($lMatchId, $isTargetSlot1 ? 1 : 2, $loserPlayerId, $loserGuestId);
+                    }
+                } else {
+                    // Winners Round w (w > 1) losers go to Losers Round (w-1)b (round 10 + 2*(w-1) + 1 = 9 + 2*w)
+                    $targetRound = 9 + 2 * $w;
+                    $targetMatchNo = $matchNo; // 1-to-1 match index
+                    
+                    $stmtL = db()->prepare("SELECT id FROM matches WHERE tournament_id = ? AND round = ? ORDER BY id ASC");
+                    $stmtL->execute([$tournamentId, $targetRound]);
+                    $lMatches = $stmtL->fetchAll(PDO::FETCH_COLUMN);
+                    if (isset($lMatches[$targetMatchNo - 1])) {
+                        $lMatchId = (int)$lMatches[$targetMatchNo - 1];
+                        $updateSlot($lMatchId, 2, $loserPlayerId, $loserGuestId); // Takes slot 2
+                    }
+                }
+            }
+        }
+    } elseif (strpos($roundName, 'Losers') === 0) {
+        // --- LOSERS BRACKET ---
+        $stmtCurr = db()->prepare("SELECT id FROM matches WHERE tournament_id = ? AND round = ? ORDER BY id ASC");
+        $stmtCurr->execute([$tournamentId, $currentRound]);
+        $currMatches = $stmtCurr->fetchAll(PDO::FETCH_COLUMN);
+        
+        $pos = array_search($matchId, $currMatches);
+        if ($pos !== false) {
+            $matchNo = $pos + 1;
+            
+            // Check if this is the last Losers round (Losers Final)
+            $stmtMaxLosers = db()->prepare("SELECT MAX(round) FROM matches WHERE tournament_id = ? AND round_name LIKE 'Losers%'");
+            $stmtMaxLosers->execute([$tournamentId]);
+            $maxLosersRound = (int)$stmtMaxLosers->fetchColumn();
+            
+            if ($currentRound === $maxLosersRound) {
+                // Winner goes to Grand Finals Match 1, Slot 2 as the Losers Bracket Champion!
+                $stmtGF = db()->prepare("SELECT id FROM matches WHERE tournament_id = ? AND round = 20 LIMIT 1");
+                $stmtGF->execute([$tournamentId]);
+                $gfId = $stmtGF->fetchColumn();
+                if ($gfId) {
+                    $updateSlot((int)$gfId, 2, $winnerPlayerId, $winnerGuestId);
+                }
+            } else {
+                // Determine if it is a 'a' round or 'b' round
+                $isRoundA = ($currentRound % 2 === 0);
+                
+                if ($isRoundA) {
+                    // Losers Round w a -> Losers Round w b (same round number + 1, same match index, Slot 1)
+                    $nextRound = $currentRound + 1;
+                    $stmtNext = db()->prepare("SELECT id FROM matches WHERE tournament_id = ? AND round = ? ORDER BY id ASC");
+                    $stmtNext->execute([$tournamentId, $nextRound]);
+                    $nextMatches = $stmtNext->fetchAll(PDO::FETCH_COLUMN);
+                    if (isset($nextMatches[$matchNo - 1])) {
+                        $nextMatchId = (int)$nextMatches[$matchNo - 1];
+                        $updateSlot($nextMatchId, 1, $winnerPlayerId, $winnerGuestId); // Takes slot 1
+                    }
+                } else {
+                    // Losers Round w b -> Losers Round (w+1)a (round + 1, half as many matches, Slot 1 or 2)
+                    $nextRound = $currentRound + 1;
+                    $nextMatchNo = (int) ceil($matchNo / 2);
+                    $isSlot1 = ($matchNo % 2 !== 0);
+                    
+                    $stmtNext = db()->prepare("SELECT id FROM matches WHERE tournament_id = ? AND round = ? ORDER BY id ASC");
+                    $stmtNext->execute([$tournamentId, $nextRound]);
+                    $nextMatches = $stmtNext->fetchAll(PDO::FETCH_COLUMN);
+                    if (isset($nextMatches[$nextMatchNo - 1])) {
+                        $nextMatchId = (int)$nextMatches[$nextMatchNo - 1];
+                        $updateSlot($nextMatchId, $isSlot1 ? 1 : 2, $winnerPlayerId, $winnerGuestId);
+                    }
+                }
+            }
+        }
+    } elseif (strpos($roundName, 'Grand Final') === 0) {
+        // --- GRAND FINALS ---
+        if ($currentRound === 20) {
+            // Grand Final Match 1
+            $winnersChampWon = matchWinnerIsSlot($match, 1);
+            
+            if ($winnersChampWon) {
+                // Winners Champion wins tournament! No bracket reset needed.
+                // Clear any players in Grand Final Match 2 (Reset) so it's not active/shown
+                db()->prepare("UPDATE matches SET player1_id = NULL, player2_id = NULL, player1_guest_id = NULL, player2_guest_id = NULL, status = 'scheduled' WHERE tournament_id = ? AND round = 21")
+                    ->execute([$tournamentId]);
+                
+                // Update tournament status to completed
+                db()->prepare("UPDATE tournaments SET status = 'completed' WHERE id = ?")->execute([$tournamentId]);
+            } else {
+                // Losers Champion won! Bracket reset occurs.
+                // Schedule Grand Final Match 2 (Reset) with same players
+                $stmtGF2 = db()->prepare("SELECT id FROM matches WHERE tournament_id = ? AND round = 21 LIMIT 1");
+                $stmtGF2->execute([$tournamentId]);
+                $gf2Id = $stmtGF2->fetchColumn();
+                if ($gf2Id) {
+                    $p1Id = $match['player1_id'];
+                    $p1GuestId = $match['player1_guest_id'];
+                    $p2Id = $match['player2_id'];
+                    $p2GuestId = $match['player2_guest_id'];
+                    
+                    db()->prepare("UPDATE matches SET player1_id = ?, player1_guest_id = ?, player2_id = ?, player2_guest_id = ?, status = 'scheduled', winner_id = NULL, winner_guest_id = NULL, player1_score = 0, player2_score = 0 WHERE id = ?")
+                        ->execute([$p1Id, $p1GuestId, $p2Id, $p2GuestId, $gf2Id]);
+                }
+            }
+        } elseif ($currentRound === 21) {
+            // Grand Final Match 2 (Reset)
+            db()->prepare("UPDATE tournaments SET status = 'completed' WHERE id = ?")->execute([$tournamentId]);
+        }
+    }
 }

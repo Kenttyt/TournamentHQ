@@ -334,7 +334,7 @@ function knockoutRoundName(int $matchCount): string {
     return 'Knockout Round';
 }
 
-function generateKnockoutStage(int $tournamentId, string $bracketType): array {
+function generateKnockoutStage(int $tournamentId, string $bracketType, bool $include3rdPlace = false): array {
     $tournament = getTournamentById($tournamentId);
     if (!$tournament) {
         return ['ok' => false, 'message' => 'Tournament not found.'];
@@ -392,7 +392,8 @@ function generateKnockoutStage(int $tournamentId, string $bracketType): array {
     $tableNum = 1;
     $created = 0;
     $firstRoundMatchCount = count($pairs);
-    $roundName = knockoutRoundName($firstRoundMatchCount);
+    $isDoubleElim = ($bracketType === 'double_elimination');
+    $roundName = ($isDoubleElim ? "Winners " : "") . knockoutRoundName($firstRoundMatchCount);
     
     $matchNo = 1;
     foreach ($pairs as [$e1, $e2]) {
@@ -439,7 +440,7 @@ function generateKnockoutStage(int $tournamentId, string $bracketType): array {
     while ($currentRoundMatches > 1) {
         $nextRoundMatches = (int) ceil($currentRoundMatches / 2);
         $nextRoundNum = $currentRoundNum + 1;
-        $nextRoundName = knockoutRoundName($nextRoundMatches);
+        $nextRoundName = ($isDoubleElim ? "Winners " : "") . knockoutRoundName($nextRoundMatches);
         
         for ($mIdx = 1; $mIdx <= $nextRoundMatches; $mIdx++) {
             $name = $nextRoundName;
@@ -464,6 +465,94 @@ function generateKnockoutStage(int $tournamentId, string $bracketType): array {
         $currentRoundNum = $nextRoundNum;
     }
     
+    if ($isDoubleElim) {
+        $numWinnersRounds = (int) log($bracketSize, 2);
+        for ($w = 1; $w < $numWinnersRounds; $w++) {
+            $numMatches = $bracketSize / pow(2, $w + 1);
+            
+            // Losers Round w a
+            $roundA = 10 + 2 * $w;
+            $roundAName = "Losers Round " . $w . "a";
+            for ($mIdx = 1; $mIdx <= $numMatches; $mIdx++) {
+                $name = $roundAName;
+                if ($numMatches > 1) {
+                    $name .= ' · Match ' . $mIdx;
+                }
+                $stmt = db()->prepare(
+                    "INSERT INTO matches (tournament_id, player1_id, player2_id, player1_guest_id, player2_guest_id, round, round_name, match_date, table_number, status)
+                     VALUES (?, NULL, NULL, NULL, NULL, ?, ?, ?, ?, 'scheduled')"
+                );
+                $stmt->execute([
+                    $tournamentId,
+                    $roundA,
+                    $name,
+                    $tournament['start_date'] ?: null,
+                    $tableNum++
+                ]);
+            }
+            
+            // Losers Round w b
+            $roundB = 10 + 2 * $w + 1;
+            $roundBName = "Losers Round " . $w . "b";
+            for ($mIdx = 1; $mIdx <= $numMatches; $mIdx++) {
+                $name = $roundBName;
+                if ($numMatches > 1) {
+                    $name .= ' · Match ' . $mIdx;
+                }
+                $stmt = db()->prepare(
+                    "INSERT INTO matches (tournament_id, player1_id, player2_id, player1_guest_id, player2_guest_id, round, round_name, match_date, table_number, status)
+                     VALUES (?, NULL, NULL, NULL, NULL, ?, ?, ?, ?, 'scheduled')"
+                );
+                $stmt->execute([
+                    $tournamentId,
+                    $roundB,
+                    $name,
+                    $tournament['start_date'] ?: null,
+                    $tableNum++
+                ]);
+            }
+        }
+        
+        // Grand Finals
+        // Match 1
+        $stmt = db()->prepare(
+            "INSERT INTO matches (tournament_id, player1_id, player2_id, player1_guest_id, player2_guest_id, round, round_name, match_date, table_number, status)
+             VALUES (?, NULL, NULL, NULL, NULL, 20, 'Grand Final · Match 1', ?, ?, 'scheduled')"
+        );
+        $stmt->execute([
+            $tournamentId,
+            $tournament['start_date'] ?: null,
+            $tableNum++
+        ]);
+        
+        // Match 2 (Reset)
+        $stmt = db()->prepare(
+            "INSERT INTO matches (tournament_id, player1_id, player2_id, player1_guest_id, player2_guest_id, round, round_name, match_date, table_number, status)
+             VALUES (?, NULL, NULL, NULL, NULL, 21, 'Grand Final · Match 2 (Reset)', ?, ?, 'scheduled')"
+        );
+        $stmt->execute([
+            $tournamentId,
+            $tournament['start_date'] ?: null,
+            $tableNum++
+        ]);
+    }
+    
+    // 3rd Place Playoff (only for single elimination with >= 4 players, or double elimination)
+    // Double elimination already has Grand Finals to decide 3rd place implicitly, so only offer
+    // 3rd place for single elim. However we support it for both if requested.
+    if ($include3rdPlace && !$isDoubleElim && $bracketSize >= 4) {
+        // 3rd place match is at round 30 (well above normal rounds to avoid clashes)
+        $stmt = db()->prepare(
+            "INSERT INTO matches (tournament_id, player1_id, player2_id, player1_guest_id, player2_guest_id, round, round_name, match_date, table_number, status)
+             VALUES (?, NULL, NULL, NULL, NULL, 30, '3rd Place Playoff', ?, ?, 'scheduled')"
+        );
+        $stmt->execute([
+            $tournamentId,
+            $tournament['start_date'] ?: null,
+            $tableNum++
+        ]);
+    }
+
     // After all rounds are created, scan round-2 matches for byes (one player, no opponent)
     // and automatically advance them. This handles the padded bye slots.
     $stmtR2 = db()->prepare("SELECT id FROM matches WHERE tournament_id = ? AND round = 2 ORDER BY id ASC");

@@ -160,7 +160,7 @@ function initNotificationPage() {
     const list = document.querySelector('.notifications-page-list');
     if (!list) return;
 
-    const actionUrl = '/table-tennis-system/includes/notification_action.php';
+    const actionUrl = '/TournamentHQ/includes/notification_action.php';
 
     // ---- Mark-read on link click (existing behaviour) ----
     list.querySelectorAll('.notification-card-link[data-notification-id]').forEach((item) => {

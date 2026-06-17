@@ -26,8 +26,8 @@ function savePaymentProofUpload(int $tournamentId, int $submitterPlayerId, array
     if (($file['error'] ?? UPLOAD_ERR_OK) !== UPLOAD_ERR_OK) {
         return ['ok' => false, 'error' => 'Upload failed. Please try again.'];
     }
-    if (($file['size'] ?? 0) > 5 * 1024 * 1024) {
-        return ['ok' => false, 'error' => 'File is too large. Maximum size is 5 MB.'];
+    if (($file['size'] ?? 0) > 10 * 1024 * 1024) {
+        return ['ok' => false, 'error' => 'File is too large. Maximum size is 10 MB.'];
     }
 
     $finfo = new finfo(FILEINFO_MIME_TYPE);
@@ -83,7 +83,7 @@ function paymentProofPublicUrl(?string $relativePath): ?string {
     if ($relativePath === null || $relativePath === '') {
         return null;
     }
-    return '/table-tennis-system/payment-proof.php?f=' . rawurlencode($relativePath);
+    return '/TournamentHQ/payment-proof.php?f=' . rawurlencode($relativePath);
 }
 
 function userCanViewPaymentProof(int $userId, string $role, string $relativePath): bool {

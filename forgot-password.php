@@ -44,10 +44,10 @@ if ($message): ?>
 <?php endif; ?>
 
 <?php if ($devLink): ?>
-<div class="dev-reset-link">
-    <strong style="color:var(--info);display:block;margin-bottom:6px">Local development — email not sent</strong>
-    Use this link to reset your password (expires in 1 hour):<br>
-    <a href="<?= e($devLink) ?>"><?= e($devLink) ?></a>
+<div class="dev-reset-link" style="background:rgba(255,255,255,0.02); border:1px dashed var(--border); padding:16px; border-radius:8px; margin-bottom:16px;">
+    <strong style="color:var(--accent);display:block;margin-bottom:6px">Local development — email not sent</strong>
+    Temporary password generated:<br>
+    <code style="font-size:16px; color:#fff; font-weight:bold;"><?= e($devLink) ?></code>
 </div>
 <?php endif; ?>
 
@@ -68,7 +68,7 @@ if ($message): ?>
 </form>
 <?php endif; ?>
 
-<a href="/table-tennis-system/index.php" class="auth-back-link">
+<a href="/TournamentHQ/login.php" class="auth-back-link">
     <i data-lucide="arrow-left" style="width:14px;height:14px"></i> Back to sign in
 </a>
 

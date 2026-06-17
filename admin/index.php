@@ -22,28 +22,28 @@ require_once __DIR__ . '/../includes/header.php';
 <!-- Stats Grid -->
 <div class="stats-grid">
     <div class="stat-card">
-        <div class="stat-icon purple">🏓</div>
+        <div class="stat-icon purple"><i data-lucide="users" style="color: var(--primary-light)"></i></div>
         <div class="stat-info">
             <div class="stat-value"><?= $totalPlayers ?></div>
             <div class="stat-label">Total Players</div>
         </div>
     </div>
     <div class="stat-card">
-        <div class="stat-icon teal">🏆</div>
+        <div class="stat-icon teal"><i data-lucide="trophy" style="color: var(--accent)"></i></div>
         <div class="stat-info">
             <div class="stat-value"><?= $totalTournaments ?></div>
             <div class="stat-label">Tournaments</div>
         </div>
     </div>
     <div class="stat-card">
-        <div class="stat-icon yellow">⚡</div>
+        <div class="stat-icon yellow"><i data-lucide="zap" style="color: var(--warning)"></i></div>
         <div class="stat-info">
             <div class="stat-value"><?= $activeTourneys ?></div>
             <div class="stat-label">Active Now</div>
         </div>
     </div>
     <div class="stat-card">
-        <div class="stat-icon blue">🎯</div>
+        <div class="stat-icon blue"><i data-lucide="target" style="color: var(--info)"></i></div>
         <div class="stat-info">
             <div class="stat-value"><?= $totalMatches ?></div>
             <div class="stat-label">Total Matches</div>
@@ -60,7 +60,7 @@ require_once __DIR__ . '/../includes/header.php';
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
                 Recent Results
             </div>
-            <a href="/table-tennis-system/admin/bracket_generator.php" class="btn btn-ghost btn-sm">Open Bracket</a>
+            <a href="/TournamentHQ/admin/bracket_generator.php" class="btn btn-ghost btn-sm">Open Bracket</a>
         </div>
         <div class="card-body" style="padding:0">
             <?php if (empty($recentMatches)): ?>
@@ -78,7 +78,12 @@ require_once __DIR__ . '/../includes/header.php';
                             <span style="color:<?= $m['winner_id']==$m['player2_id']?'var(--success)':'var(--text-400)' ?>;font-weight:600;"><?= e($m['p2_first'].' '.$m['p2_last']) ?></span>
                         </div>
                     </td>
-                    <td><strong><?= $m['player1_score'] ?> — <?= $m['player2_score'] ?></strong></td>
+                    <td>
+                        <strong><?= $m['player1_score'] ?> — <?= $m['player2_score'] ?></strong>
+                        <?php if (!empty($m['set_scores'])): ?>
+                            <div class="text-muted text-xs" style="margin-top: 2px; font-family: monospace;"><?= e(str_replace(',', '  ', $m['set_scores'])) ?></div>
+                        <?php endif; ?>
+                    </td>
                     <td class="text-muted text-sm"><?= e($m['tournament_name']) ?></td>
                 </tr>
                 <?php endforeach; ?>
@@ -95,7 +100,7 @@ require_once __DIR__ . '/../includes/header.php';
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
                 Upcoming Tournaments
             </div>
-            <a href="/table-tennis-system/admin/manage_tournaments.php" class="btn btn-ghost btn-sm">Manage</a>
+            <a href="/TournamentHQ/admin/manage_tournaments.php" class="btn btn-ghost btn-sm">Manage</a>
         </div>
         <div class="card-body" style="padding:0">
             <?php 
@@ -128,7 +133,7 @@ require_once __DIR__ . '/../includes/header.php';
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
             Upcoming Matches
         </div>
-        <a href="/table-tennis-system/admin/bracket_generator.php" class="btn btn-primary btn-sm">
+        <a href="/TournamentHQ/admin/bracket_generator.php" class="btn btn-primary btn-sm">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
             Generate Bracket
         </a>
@@ -139,7 +144,7 @@ require_once __DIR__ . '/../includes/header.php';
         <?php else: ?>
         <div class="table-responsive">
         <table class="data-table">
-            <thead><tr><th>Player 1</th><th>Player 2</th><th>Tournament</th><th>Date</th><th>Table</th></tr></thead>
+            <thead><tr><th>Player 1</th><th>Player 2</th><th>Tournament</th><th>Date</th></tr></thead>
             <tbody>
             <?php foreach ($upcomingMatches as $m): ?>
             <tr>
@@ -147,7 +152,6 @@ require_once __DIR__ . '/../includes/header.php';
                 <td><strong><?= e($m['p2_first'].' '.$m['p2_last']) ?></strong></td>
                 <td class="text-sm"><?= e($m['tournament_name']) ?></td>
                 <td class="text-sm text-muted"><?= $m['match_date'] ? date('M j, Y g:i A', strtotime($m['match_date'])) : '—' ?></td>
-                <td class="text-sm">Table <?= e($m['table_number']) ?></td>
             </tr>
             <?php endforeach; ?>
             </tbody>

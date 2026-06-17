@@ -8,7 +8,7 @@ requireRole('admin');
 require_once __DIR__ . '/../modules/tournaments/tournament_functions.php';
 require_once __DIR__ . '/../modules/tournaments/bracket_functions.php';
 
-$formAction = '/table-tennis-system/admin/bracket_generator.php';
+$formAction = '/TournamentHQ/admin/bracket_generator.php';
 $tid = (int) ($_GET['tournament_id'] ?? $_POST['tournament_id'] ?? 0);
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -39,7 +39,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if ($action === 'generate_knockout' && $postTid) {
         $knockoutFormat = trim($_POST['knockout_format'] ?? 'single_elimination');
-        $result = generateKnockoutStage($postTid, $knockoutFormat);
+        $include3rdPlace = !empty($_POST['include_3rd_place']);
+        $result = generateKnockoutStage($postTid, $knockoutFormat, $include3rdPlace);
         if ($result['ok']) {
             $formatLabel = $knockoutFormat === 'single_elimination' ? 'Single Elimination' : 'Double Elimination';
             setFlash('success', 'Group stage finished! Generated ' . $formatLabel . ' knockout stage with ' . $result['matches'] . ' match(es) for ' . $result['round_name'] . '.');
@@ -68,7 +69,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $matchId = (int) ($_POST['match_id'] ?? 0);
         $winnerKey = trim($_POST['winner_key'] ?? '');
         if ($matchId && $winnerKey) {
-            recordBracketMatchResult($matchId, $winnerKey, (int) ($_POST['player1_score'] ?? 0), (int) ($_POST['player2_score'] ?? 0));
+            $setScores = !empty($_POST['set_scores']) ? trim($_POST['set_scores']) : null;
+            recordBracketMatchResult($matchId, $winnerKey, (int) ($_POST['player1_score'] ?? 0), (int) ($_POST['player2_score'] ?? 0), $setScores);
             setFlash('success', 'Match result saved.');
         }
         header('Location: bracket_generator.php?tournament_id=' . $postTid);

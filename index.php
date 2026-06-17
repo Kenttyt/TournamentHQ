@@ -1,38 +1,13 @@
 <?php
 /**
- * Root Entry Point — Login Page
- * Table Tennis Tournament Management System
+ * Root Entry Point — Landing Page
  */
 require_once __DIR__ . '/includes/auth.php';
-require_once __DIR__ . '/modules/auth/google_oauth.php';
 
-// Redirect if already logged in
 if (isLoggedIn()) {
     header('Location: ' . getDashboardUrl($_SESSION['role']));
     exit;
 }
-
-$error = '';
-$flash = getFlash();
-$googleEnabled = isGoogleOAuthConfigured();
-
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $username = trim($_POST['username'] ?? '');
-    $password = $_POST['password'] ?? '';
-
-    if (!$username || !$password) {
-        $error = 'Please enter both username and password.';
-    } else {
-        $result = loginUser($username, $password);
-        if ($result['success']) {
-            header('Location: ' . getDashboardUrl($result['role']));
-            exit;
-        } else {
-            $error = $result['message'];
-        }
-    }
-}
-
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -40,12 +15,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" content="Register as a player or organize table tennis tournaments — registration and brackets in one system.">
-    <title>Sign In | TT Tournament Manager</title>
+    <title>TournamentHQ | Table Tennis Tournament Management</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@400;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://unpkg.com/lucide-static@latest/font/lucide.css">
-    <link rel="stylesheet" href="/table-tennis-system/assets/css/style.css">
+    <link rel="stylesheet" href="/TournamentHQ/assets/css/style.css">
     <style>
         :root {
             --primary:        #6c63ff;
@@ -64,15 +39,126 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             --radius-lg:      20px;
         }
 
-        .login-page {
+        body {
+            background-color: var(--bg-900);
+            color: var(--text-100);
+            margin: 0;
+            font-family: 'Inter', sans-serif;
             min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Toornament.com Style Header */
+        .site-header {
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            background: #0f111a;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            padding: 0 24px;
+            height: 72px;
+            display: flex;
+            align-items: center;
+        }
+
+        .nav-container {
+            width: 100%;
+            max-width: 1200px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            height: 100%;
+        }
+
+        .brand-logo {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            text-decoration: none;
+            color: #ffffff;
+            font-family: 'Outfit', sans-serif;
+            font-weight: 800;
+            font-size: 22px;
+            letter-spacing: -0.5px;
+            text-transform: uppercase;
+        }
+
+        .brand-logo em {
+            font-style: normal;
+            color: var(--accent);
+        }
+
+        .nav-links {
+            display: flex;
+            align-items: center;
+            gap: 32px;
+            height: 100%;
+            margin-left: auto;
+        }
+
+        .nav-link-item {
+            color: #a3a7c2;
+            text-decoration: none;
+            font-weight: 700;
+            font-size: 13px;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+            transition: all 0.25s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            position: relative;
+            background: var(--bg-700);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            padding: 10px 22px;
+            height: auto;
+        }
+
+        .nav-link-item:hover {
+            color: #ffffff;
+            border-color: rgba(108, 99, 255, 0.4);
+            background: rgba(108, 99, 255, 0.1);
+        }
+
+        .nav-link-item.active {
+            color: #ffffff;
+            background: rgba(108, 99, 255, 0.2);
+            border-color: rgba(108, 99, 255, 0.5);
+        }
+
+        .header-cta {
+            background: var(--primary);
+            color: #ffffff;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+            cursor: pointer;
+            transition: background-color 0.25s ease, transform 0.2s ease;
+        }
+
+        .header-cta:hover {
+            background-color: var(--primary-light);
+            transform: translateY(-1px);
+        }
+
+        .login-page {
+            flex: 1;
             display: flex;
             align-items: center;
             justify-content: center;
             padding: 40px 20px;
             background:
-                radial-gradient(ellipse at 10% 20%, rgba(108,99,255,0.18) 0%, transparent 60%),
-                radial-gradient(ellipse at 90% 80%, rgba(0,212,170,0.12) 0%, transparent 60%),
+                radial-gradient(ellipse at 10% 20%, rgba(108,99,255,0.12) 0%, transparent 60%),
+                radial-gradient(ellipse at 90% 80%, rgba(0,212,170,0.08) 0%, transparent 60%),
                 var(--bg-900);
             overflow-x: hidden;
         }
@@ -201,11 +287,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             line-height: 1.4;
         }
 
+        /* Right Side / Flow Panel container */
         .login-section {
             flex: 0.85;
             display: flex;
             justify-content: flex-end;
             min-width: 380px;
+        }
+
+        .landing-cta-box {
+            background: var(--bg-800);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+            padding: 40px;
+            width: 100%;
+            max-width: 420px;
+            text-align: center;
+            box-shadow: var(--shadow-lg);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 20px;
         }
 
         .login-card {
@@ -332,12 +435,74 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         @media (max-width: 480px) {
             .login-page { padding: 24px 16px; }
-            .login-card { padding: 28px 24px; }
+            .login-card, .landing-cta-box { padding: 28px 24px; }
             .landing-perks { grid-template-columns: 1fr; }
+        }
+
+        /* Feature Highlights */
+        .features-section {
+            width: 100%; max-width: 900px; margin: 0 auto;
+            padding: 50px 20px 60px; box-sizing: border-box;
+        }
+        .features-section > h2 {
+            font-family: 'Outfit', sans-serif; font-size: 22px; font-weight: 700;
+            color: var(--text-100); margin: 0 0 32px 0; text-align: center;
+        }
+        .features-grid {
+            display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px;
+        }
+        @media (max-width: 640px) { .features-grid { grid-template-columns: 1fr; } }
+        .feature-card {
+            display: flex; flex-direction: column; gap: 14px;
+            padding: 24px 20px;
+            background: var(--bg-800); border: 1px solid var(--border);
+            border-radius: var(--radius-md);
+            transition: border-color 0.2s ease, background 0.2s ease;
+        }
+        .feature-card:hover {
+            border-color: rgba(108,99,255,0.3); background: rgba(108,99,255,0.03);
+        }
+        .feat-icon {
+            width: 40px; height: 40px; border-radius: 10px;
+            background: rgba(108,99,255,0.12); display: flex;
+            align-items: center; justify-content: center;
+        }
+        .feat-icon i { width: 20px; height: 20px; color: var(--primary-light); }
+        .feature-card h3 {
+            font-family: 'Outfit', sans-serif; font-size: 15px; font-weight: 600;
+            color: var(--text-100); margin: 0;
+        }
+        .feature-card p {
+            font-size: 13px; color: var(--text-300); line-height: 1.6; margin: 0;
+        }
+
+        /* Footer */
+        .site-footer {
+            border-top: 1px solid var(--border);
+            padding: 24px 20px; text-align: center;
+            font-size: 12px; color: var(--text-400);
         }
     </style>
 </head>
 <body>
+
+<header class="site-header">
+    <div class="nav-container">
+        <a href="/TournamentHQ/index.php" class="brand-logo">
+            <i data-lucide="trophy"></i>
+            <span>TournamentHQ<em>.</em></span>
+        </a>
+        <nav class="nav-links">
+            <a href="/TournamentHQ/play.php" class="nav-link-item">
+                <i data-lucide="gamepad-2" style="width:16px;height:16px;"></i> Play
+            </a>
+            <a href="/TournamentHQ/login.php?role=organizer" class="nav-link-item">
+                <i data-lucide="layout-grid" style="width:16px;height:16px;"></i> Organize
+            </a>
+        </nav>
+    </div>
+</header>
+
 <div class="login-page">
     <div class="home-container">
 
@@ -361,131 +526,44 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     <span class="step-num">2</span>
                     <div class="step-body">
                         <h3>Join or host a tournament</h3>
-                        <p>Organizers set up events, seed players, and publish brackets for everyone to follow.</p>
+                        <p>Organizers set up events, players, and publish brackets for everyone to follow.</p>
                     </div>
                 </div>
             </div>
 
-            <div class="landing-perks">
-                <div class="perk-card">
-                    <i data-lucide="calendar-plus"></i>
-                    <span>Tournament setup &amp; scheduling</span>
-                </div>
-                <div class="perk-card">
-                    <i data-lucide="git-merge"></i>
-                    <span>Bracket generation</span>
-                </div>
-            </div>
         </aside>
-
-        <div class="login-section">
-            <div class="login-card">
-                <div class="login-logo" style="margin-bottom: 24px; text-align: left;">
-                    <h2 style="font-family: 'Outfit', sans-serif; font-size: 22px; font-weight: 700; color: var(--text-100);">Sign In</h2>
-                    <p style="font-size: 13px; color: var(--text-400); margin-top: 4px;">Welcome back! Enter your credentials to access your dashboard.</p>
-                </div>
-
-                <?php if ($flash): ?>
-                <div class="flash-message flash-<?= e($flash['type']) ?>" style="margin-bottom:16px; margin-left:0; margin-right:0;">
-                    <i data-lucide="<?= $flash['type'] === 'success' ? 'check-circle' : 'alert-circle' ?>"></i>
-                    <?= e($flash['message']) ?>
-                </div>
-                <?php endif; ?>
-
-                <?php if ($error): ?>
-                <div class="flash-message flash-error" style="margin-bottom:16px; margin-left:0; margin-right:0;">
-                    <i data-lucide="alert-circle"></i>
-                    <?= e($error) ?>
-                </div>
-                <?php endif; ?>
-
-                <form method="POST" action="" id="loginForm">
-                    <div class="form-group">
-                        <label class="form-label" for="username">Username</label>
-                        <div class="input-wrap">
-                            <i data-lucide="user" class="input-icon"></i>
-                            <input type="text" id="username" name="username" class="form-control"
-                                   placeholder="Enter your username"
-                                   value="<?= e($_POST['username'] ?? '') ?>" autocomplete="username" required>
-                        </div>
-                    </div>
-                    <div class="form-group">
-                        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px">
-                            <label class="form-label" for="password" style="margin:0">Password</label>
-                            <a href="/table-tennis-system/forgot-password.php" class="text-xs" style="color:var(--primary-light);font-weight:600;text-decoration:none">Forgot password?</a>
-                        </div>
-                        <div class="input-wrap">
-                            <i data-lucide="lock" class="input-icon"></i>
-                            <input type="password" id="password" name="password" class="form-control"
-                                   placeholder="Enter your password" autocomplete="current-password" required>
-                            <button type="button" class="show-pw" id="togglePw" title="Show/hide password">
-                                <i data-lucide="eye" id="pwIcon"></i>
-                            </button>
-                        </div>
-                    </div>
-
-                    <button type="submit" class="btn btn-primary btn-login" id="loginBtn">
-                        <i data-lucide="log-in" style="margin-right: 6px;"></i>
-                        Sign In
-                    </button>
-                </form>
-
-                <?php if ($googleEnabled): ?>
-                <a href="/table-tennis-system/google-login.php?mode=login" class="btn" style="width: 100%; justify-content: center; height: 46px; font-size: 14px; background: #ffffff; color: #1f1f1f; margin-top: 12px; border: 1px solid #dadce0; font-family: 'Roboto', sans-serif; font-weight: 500;">
-                    <svg viewBox="0 0 24 24" width="18" height="18" style="margin-right: 8px; vertical-align: middle;">
-                        <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-                        <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-                        <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
-                        <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
-                    </svg>
-                    Sign in with Google
-                </a>
-                <?php else: ?>
-                <p class="text-muted text-xs" style="margin-top:12px;text-align:center;line-height:1.45">
-                    Google sign-in: copy <code>config/google.local.php.example</code> to <code>config/google.local.php</code> and add your OAuth Client ID &amp; Secret.
-                </p>
-                <?php endif; ?>
-
-                <div class="login-sep">New to the platform?</div>
-
-                <a href="/table-tennis-system/register.php" class="btn btn-outline" style="width: 100%; justify-content: center; height: 46px; font-size: 14px;">
-                    <i data-lucide="user-plus" style="margin-right: 6px;"></i>
-                    Create Account
-                </a>
-            </div>
-        </div>
 
     </div>
 </div>
 
+<div class="features-section">
+    <h2>Built for Competition</h2>
+    <div class="features-grid">
+        <div class="feature-card">
+            <div class="feat-icon"><i data-lucide="git-merge"></i></div>
+            <h3>Bracket Generation</h3>
+            <p>Auto-generate single or double elimination brackets with one click.</p>
+        </div>
+        <div class="feature-card">
+            <div class="feat-icon"><i data-lucide="calendar-clock"></i></div>
+            <h3>Smart Scheduling</h3>
+            <p>Set match dates, assign tables, and manage the full tournament timeline.</p>
+        </div>
+        <div class="feature-card">
+            <div class="feat-icon"><i data-lucide="zap"></i></div>
+            <h3>Live Results</h3>
+            <p>Submit match outcomes and watch brackets update in real time.</p>
+        </div>
+    </div>
+</div>
+
+<footer class="site-footer">
+    TournamentHQ
+</footer>
+
 <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
 <script>
-document.addEventListener('DOMContentLoaded', () => {
-    // Initialize Lucide icons
-    if (typeof lucide !== 'undefined') {
-        lucide.createIcons();
-    }
-
-    // Toggle Password visibility
-    const togglePw = document.getElementById('togglePw');
-    const pwInput = document.getElementById('password');
-    const pwIcon = document.getElementById('pwIcon');
-    if (togglePw && pwInput) {
-        togglePw.addEventListener('click', () => {
-            if (pwInput.type === 'password') {
-                pwInput.type = 'text';
-                pwIcon.setAttribute('data-lucide', 'eye-off');
-            } else {
-                pwInput.type = 'password';
-                pwIcon.setAttribute('data-lucide', 'eye');
-            }
-            if (typeof lucide !== 'undefined') {
-                lucide.createIcons();
-            }
-        });
-    }
-
-});
+document.addEventListener('DOMContentLoaded', () => { lucide.createIcons(); });
 </script>
 </body>
 </html>

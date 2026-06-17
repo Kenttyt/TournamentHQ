@@ -337,6 +337,10 @@ if (!empty($bracketGroups)) {
                                 <option value="double_elimination">Double Elimination</option>
                             </select>
                         </div>
+                        <label style="display: flex; align-items: center; gap: 8px; font-size: 13px; cursor: pointer; padding-bottom: 10px;">
+                            <input type="checkbox" name="include_3rd_place" value="1" checked>
+                            Include 3rd Place Playoff
+                        </label>
                         <button type="submit" class="btn btn-accent">
                             Generate Knockout Bracket
                         </button>
@@ -524,6 +528,24 @@ if (!empty($bracketGroups)) {
                         <input type="number" name="player2_score" class="form-control" min="0" value="0" required title="Sets won">
                     </div>
                 </div>
+                <div class="form-group" style="margin-top: 16px; border-top: 1px solid var(--border); padding-top: 16px;">
+                    <label class="form-label" style="font-weight: 600; margin-bottom: 8px;">Set Scores (Points)</label>
+                    <div style="display: grid; grid-template-columns: 60px 1fr 1fr; gap: 12px; align-items: center; margin-bottom: 8px; text-align: center;">
+                        <span></span>
+                        <span id="bracketSetP1Header" style="font-size: 11px; font-weight: 700; color: var(--text-200); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 0 4px;">Player 1</span>
+                        <span id="bracketSetP2Header" style="font-size: 11px; font-weight: 700; color: var(--text-200); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 0 4px;">Player 2</span>
+                    </div>
+                    <div style="display: flex; flex-direction: column; gap: 8px;" id="setScoresContainer">
+                        <?php for ($s = 1; $s <= 5; $s++): ?>
+                            <div style="display: grid; grid-template-columns: 60px 1fr 1fr; gap: 12px; align-items: center;">
+                                <span style="font-size: 11px; font-weight: 600; color: var(--text-300);">Set <?= $s ?></span>
+                                <input type="number" class="form-control js-set-p1" data-set="<?= $s ?>" placeholder="0" min="0" style="padding: 4px 8px; font-size: 12px;">
+                                <input type="number" class="form-control js-set-p2" data-set="<?= $s ?>" placeholder="0" min="0" style="padding: 4px 8px; font-size: 12px;">
+                            </div>
+                        <?php endfor; ?>
+                    </div>
+                    <input type="hidden" name="set_scores" id="bracketSetScoresInput">
+                </div>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-outline" data-modal-close>Cancel</button>
@@ -534,6 +556,67 @@ if (!empty($bracketGroups)) {
 </div>
 
 <script>
+function calculateSetsFromSetInputs() {
+    let p1Sets = 0;
+    let p2Sets = 0;
+    const setScores = [];
+    
+    for (let s = 1; s <= 5; s++) {
+        const p1Input = document.querySelector(`.js-set-p1[data-set="${s}"]`);
+        const p2Input = document.querySelector(`.js-set-p2[data-set="${s}"]`);
+        
+        if (p1Sets >= 3 || p2Sets >= 3) {
+            p1Input.disabled = true;
+            p2Input.disabled = true;
+            p1Input.value = '';
+            p2Input.value = '';
+            continue;
+        } else {
+            p1Input.disabled = false;
+            p2Input.disabled = false;
+        }
+        
+        const p1Val = p1Input.value;
+        const p2Val = p2Input.value;
+        
+        if (p1Val !== '' && p2Val !== '') {
+            const p1 = parseInt(p1Val, 10);
+            const p2 = parseInt(p2Val, 10);
+            setScores.push(p1 + '-' + p2);
+            if (p1 > p2) {
+                p1Sets++;
+            } else if (p2 > p1) {
+                p2Sets++;
+            }
+        }
+    }
+    
+    document.querySelector('[name="player1_score"]').value = p1Sets;
+    document.querySelector('[name="player2_score"]').value = p2Sets;
+    
+    if (setScores.length > 0) {
+        const sel = document.getElementById('bracketWinnerSelect');
+        const p1Key = sel.options[1] ? sel.options[1].value : '';
+        const p2Key = sel.options[2] ? sel.options[2].value : '';
+        
+        if (p1Sets > p2Sets) {
+            sel.value = p1Key;
+            document.getElementById('bracketWinnerKey').value = p1Key;
+        } else if (p2Sets > p1Sets) {
+            sel.value = p2Key;
+            document.getElementById('bracketWinnerKey').value = p2Key;
+        }
+    }
+    
+    document.getElementById('bracketSetScoresInput').value = setScores.join(',');
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('.js-set-p1, .js-set-p2').forEach(function(input) {
+        input.addEventListener('input', calculateSetsFromSetInputs);
+    });
+});
+
 function openBracketResultModal(btn) {
     const isEdit = btn.getAttribute('data-edit') === '1';
     const p1Key = btn.getAttribute('data-p1-key');
@@ -548,10 +631,32 @@ function openBracketResultModal(btn) {
     document.getElementById('bracketMatchLabel').textContent = p1Name + ' vs ' + p2Name;
     document.getElementById('bracketP1Label').textContent = p1Name + ' sets';
     document.getElementById('bracketP2Label').textContent = p2Name + ' sets';
+    document.getElementById('bracketSetP1Header').textContent = p1Name;
+    document.getElementById('bracketSetP2Header').textContent = p2Name;
 
     const form = document.querySelector('#bracketResultModal form');
     form.querySelector('[name="player1_score"]').value = btn.getAttribute('data-p1-sets') || '0';
     form.querySelector('[name="player2_score"]').value = btn.getAttribute('data-p2-sets') || '0';
+
+    const setScoresRaw = btn.getAttribute('data-set-scores') || '';
+    document.getElementById('bracketSetScoresInput').value = setScoresRaw;
+    const setsArray = setScoresRaw ? setScoresRaw.split(',') : [];
+    
+    for (let s = 1; s <= 5; s++) {
+        const p1Input = document.querySelector(`.js-set-p1[data-set="${s}"]`);
+        const p2Input = document.querySelector(`.js-set-p2[data-set="${s}"]`);
+        
+        if (setsArray[s - 1]) {
+            const parts = setsArray[s - 1].split('-');
+            p1Input.value = parts[0] || '';
+            p2Input.value = parts[1] || '';
+        } else {
+            p1Input.value = '';
+            p2Input.value = '';
+        }
+    }
+    
+    calculateSetsFromSetInputs();
 
     const sel = document.getElementById('bracketWinnerSelect');
     sel.innerHTML = '<option value="">— Select winner —</option>'

@@ -1,1 +1,3 @@
 config/google.local.php
+config/database.local.php
+config/n8n.local.php

@@ -9,7 +9,7 @@
 <?php endif; ?>
 
 <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
-<script src="/table-tennis-system/assets/js/main.js"></script>
+<script src="/TournamentHQ/assets/js/main.js"></script>
 <?= isset($extraJs) ? $extraJs : '' ?>
 </body>
 </html>

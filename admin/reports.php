@@ -32,28 +32,28 @@ require_once __DIR__ . '/../includes/header.php';
 <!-- Stats -->
 <div class="stats-grid" style="grid-template-columns:repeat(auto-fill,minmax(200px,1fr))">
     <div class="stat-card">
-        <div class="stat-icon purple">👤</div>
+        <div class="stat-icon purple"><i data-lucide="users" style="color: var(--primary-light)"></i></div>
         <div class="stat-info">
             <div class="stat-value"><?= $totalPlayers ?></div>
             <div class="stat-label">Registered Players</div>
         </div>
     </div>
     <div class="stat-card">
-        <div class="stat-icon teal">🏆</div>
+        <div class="stat-icon teal"><i data-lucide="trophy" style="color: var(--accent)"></i></div>
         <div class="stat-info">
             <div class="stat-value"><?= count($tournaments) ?></div>
             <div class="stat-label">Total Tournaments</div>
         </div>
     </div>
     <div class="stat-card">
-        <div class="stat-icon yellow">⚡</div>
+        <div class="stat-icon yellow"><i data-lucide="zap" style="color: var(--warning)"></i></div>
         <div class="stat-info">
             <div class="stat-value"><?= $totalMatches ?></div>
             <div class="stat-label">Total Matches</div>
         </div>
     </div>
     <div class="stat-card">
-        <div class="stat-icon blue">🎯</div>
+        <div class="stat-icon blue"><i data-lucide="target" style="color: var(--info)"></i></div>
         <div class="stat-info">
             <div class="stat-value"><?= $totalWins ?></div>
             <div class="stat-label">Total Sets Won</div>
@@ -81,7 +81,7 @@ require_once __DIR__ . '/../includes/header.php';
                     <td class="text-muted text-sm"><?= $i+1 ?></td>
                     <td>
                         <div class="player-cell">
-                            <div class="p-avatar" style="width:30px;height:30px;font-size:11px"><?= strtoupper(substr($p['first_name'],0,1)) ?></div>
+                            <div class="p-avatar" style="width:30px;height:30px;font-size:16px;display:flex;align-items:center;justify-content:center;"><?= getPlayerGenderAvatar($p['gender'] ?? null, false) ?></div>
                             <div>
                                 <div class="p-name"><?= e($p['first_name'].' '.$p['last_name']) ?></div>
                                 <div class="p-club"><?= e($p['club'] ?: '—') ?></div>

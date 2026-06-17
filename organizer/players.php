@@ -26,12 +26,12 @@ if ($tidFilter) {
             'id' => 0,
             'first_name' => $g['first_name'],
             'last_name' => $g['last_name'],
-            'club' => '',
-            'nationality' => '—',
+            'club' => $g['club'] ?? '',
+            'nationality' => $g['nationality'] ?? '',
             'wins' => 0,
             'losses' => 0,
             'is_guest' => true,
-            'registered_by_name' => $regName ?: 'Organizer/Admin'
+            'registered_by_name' => $regName ?: 'Organizer/Admin',
         ];
     }
 } else {
@@ -79,7 +79,7 @@ require_once __DIR__ . '/../includes/header.php';
                 </thead>
                 <tbody>
                 <?php if (empty($players)): ?>
-                    <tr><td colspan="4"><div class="empty-state"><div class="empty-icon">🏓</div><h3>No players</h3><p>No players found for this filter.</p></div></td></tr>
+                    <tr><td colspan="4"><div class="empty-state"><h3>No players</h3><p>No players found for this filter.</p></div></td></tr>
                 <?php else: ?>
                 <?php foreach ($players as $i => $p): 
                     $isGuest = $p['is_guest'] ?? false;
@@ -88,7 +88,7 @@ require_once __DIR__ . '/../includes/header.php';
                     <td class="text-muted text-sm"><?= $i+1 ?></td>
                     <td>
                         <div class="player-cell">
-                            <div class="p-avatar" style="<?= $isGuest ? 'background: linear-gradient(135deg, var(--primary), var(--accent)); border: 1px dashed var(--border);' : '' ?>"><?= strtoupper(substr($p['first_name'],0,1)) ?></div>
+                            <div class="p-avatar" style="font-size: 18px; <?= $isGuest ? 'background: linear-gradient(135deg, var(--primary), var(--accent)); border: 1px dashed var(--border);' : '' ?>"><?= getPlayerGenderAvatar($p['gender'] ?? null, $isGuest) ?></div>
                             <div>
                                 <div class="p-name">
                                     <?= e($p['first_name'].' '.$p['last_name']) ?>
@@ -96,17 +96,17 @@ require_once __DIR__ . '/../includes/header.php';
                                         <span class="badge badge-ongoing" style="font-size: 9px; padding: 2px 6px; margin-left: 6px; background: rgba(108,99,255,0.15); color: var(--primary-light); border: 1px solid rgba(108,99,255,0.3);">Guest</span>
                                     <?php endif; ?>
                                 </div>
-                                <div class="p-club"><?= isset($p['username']) ? e($p['username']) : '' ?></div>
+                                <div class="p-club">
+                                    <?php if ($isGuest && !empty($p['registered_by_name'])): ?>
+                                        Registered by <?= e($p['registered_by_name']) ?>
+                                    <?php elseif (isset($p['username'])): ?>
+                                        <?= e($p['username']) ?>
+                                    <?php endif; ?>
+                                </div>
                             </div>
                         </div>
                     </td>
-                    <td class="text-sm">
-                        <?php if ($isGuest): ?>
-                            <span class="text-muted" style="font-style: italic;">Guest of <?= e($p['registered_by_name']) ?></span>
-                        <?php else: ?>
-                            <?= e($p['club'] ?: '—') ?>
-                        <?php endif; ?>
-                    </td>
+                    <td class="text-sm"><?= e($p['club'] ?: '—') ?></td>
                     <td class="text-sm"><?= e($p['nationality'] ?: '—') ?></td>
                 </tr>
                 <?php endforeach; ?>

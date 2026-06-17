@@ -69,13 +69,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $playerId > 0) {
                     setFlash('danger', 'Add at least one player to register. Your account profile is not included in the tournament.');
                 } elseif ($totalSlotsNeeded > $availableSlots) {
                     setFlash('danger', 'Not enough slots available in this tournament. Only ' . $availableSlots . ' remaining.');
-                } elseif (isPlayerRegistered($tid, $playerId)) {
-                    $regStatus = getPlayerRegistrationStatus($tid, $playerId);
-                    if ($regStatus === 'pending') {
-                        setFlash('info', 'Your player registration for ' . $t['name'] . ' is awaiting organizer approval.');
-                    } else {
-                        setFlash('info', 'You already have players registered for ' . $t['name'] . '.');
-                    }
                 } else {
                     $needsProof = tournamentRequiresPaymentProof($t);
                     $proofPath = null;
@@ -173,19 +166,13 @@ require_once __DIR__ . '/../includes/header.php';
 ?>
 
 <!-- Welcome Banner -->
-<div style="background:linear-gradient(135deg,rgba(108,99,255,0.15),rgba(0,212,170,0.08));border:1px solid var(--border);border-radius:var(--radius-lg);padding:28px 32px;margin-bottom:28px;display:flex;align-items:center;gap:20px">
-    <div style="width:60px;height:60px;border-radius:50%;background:linear-gradient(135deg,var(--primary),var(--accent));display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:800;flex-shrink:0">
-        <?= strtoupper(substr($player['first_name'],0,1)) ?>
-    </div>
-    <div>
-        <h1 style="font-family:'Outfit',sans-serif;font-size:22px;font-weight:700;color:var(--text-100);margin:0">
-            Welcome, <?= e($player['first_name']) ?>! 🏓
-        </h1>
-        <p style="font-size:13px;color:var(--text-400);margin-top:4px">
-            <?= e($player['club'] ?: 'No club') ?><?= $player['nationality'] ? ' · '.e($player['nationality']) : '' ?>
-        </p>
-    </div>
-
+<div style="background:linear-gradient(135deg,rgba(108,99,255,0.15),rgba(0,212,170,0.08));border:1px solid var(--border);border-radius:var(--radius-lg);padding:28px 32px;margin-bottom:28px">
+    <h1 style="font-family:'Outfit',sans-serif;font-size:22px;font-weight:700;color:var(--text-100);margin:0">
+        Welcome, <?= e($player['first_name']) ?>!
+    </h1>
+    <p style="font-size:13px;color:var(--text-400);margin-top:4px">
+        <?= e(($player['club'] ?? '') ?: 'No club') ?><?= ($player['nationality'] ?? '') ? ' · '.e($player['nationality']) : '' ?>
+    </p>
 </div>
 
 <!-- Explore Tournaments -->
@@ -195,7 +182,7 @@ require_once __DIR__ . '/../includes/header.php';
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 20px; height: 20px; color: var(--accent);"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
             Explore & Register Players
         </div>
-        <span class="text-muted text-xs">Add players to enter a tournament — your account profile is not registered</span>
+        <span class="text-muted text-xs">Add players to enter a tournament </span>
     </div>
     <div class="card-body" style="padding: 0;">
         <?php
@@ -239,7 +226,11 @@ require_once __DIR__ . '/../includes/header.php';
                         ?>
                             <tr>
                                 <td>
-                                    <div style="font-weight: 700; color: var(--text-100);"><?= e($t['name']) ?></div>
+                                    <div style="font-weight: 700; color: var(--text-100);">
+                                        <a href="tournament_bracket.php?tournament_id=<?= $t['id'] ?>" style="color: var(--primary-light); text-decoration: none;" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">
+                                            <?= e($t['name']) ?>
+                                        </a>
+                                    </div>
                                     <?php if ($t['description']): ?>
                                         <div class="text-muted text-xs" style="margin-top: 2px; max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"><?= e($t['description']) ?></div>
                                     <?php endif; ?>
@@ -292,6 +283,21 @@ require_once __DIR__ . '/../includes/header.php';
                                                 <span class="badge badge-upcoming" style="padding: 6px 12px; font-weight: 700; border-radius: var(--radius-sm);">Players pending</span>
                                             <?php else: ?>
                                                 <span class="badge badge-ongoing" style="padding: 6px 12px; font-weight: 700; border-radius: var(--radius-sm);">Registered ✓</span>
+                                            <?php endif; ?>
+                                            <?php if ($t['status'] === 'upcoming'): ?>
+                                                <button
+                                                    type="button"
+                                                    class="btn btn-primary btn-sm js-join-tournament-btn"
+                                                    style="padding: 5px 10px; font-weight: 700; height: auto; font-size: 11px;"
+                                                    data-tid="<?= (int)$t['id'] ?>"
+                                                    data-tname="<?= e($t['name']) ?>"
+                                                    data-pname="<?= e(trim($player['first_name'] . ' ' . $player['last_name'])) ?>"
+                                                    data-description="<?= e($t['description'] ?? '') ?>"
+                                                    data-slots="<?= (int)($t['max_players'] - $t['registered_count']) ?>"
+                                                    data-fee="<?= e(formatRegistrationFee($t)) ?>"
+                                                    data-requires-proof="<?= tournamentRequiresPaymentProof($t) ? '1' : '0' ?>"
+                                                    data-email-missing="<?= $emailMissing ? '1' : '0' ?>"
+                                                >+ Add</button>
                                             <?php endif; ?>
                                             <?php if ($t['status'] === 'upcoming' && ($isApproved || $isPending)): ?>
                                                 <form method="POST" style="display: inline;" onsubmit="return confirm('Are you sure you want to leave this tournament?');">
@@ -371,6 +377,9 @@ require_once __DIR__ . '/../includes/header.php';
                             <span class="badge badge-ongoing">Approved</span>
                         <?php endif; ?>
                         <span class="badge badge-<?= e($t['status']) ?>"><?= ucfirst(e($t['status'])) ?></span>
+                        <a href="tournament_bracket.php?tournament_id=<?= $t['id'] ?>" class="btn btn-outline btn-sm" style="padding: 4px 10px; font-size: 11px; height: auto; display: inline-flex; align-items: center; gap: 4px;">
+                            Bracket
+                        </a>
                     </div>
                 </div>
                 <?php if (empty($myPlayers)): ?>
@@ -388,7 +397,12 @@ require_once __DIR__ . '/../includes/header.php';
                     <?php endif; ?>
                     <?php foreach ($myPlayers as $mp): ?>
                     <li style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 12px;background:var(--bg-700);border-radius:var(--radius-sm)">
-                        <span style="font-size:13px;font-weight:600;color:var(--text-200)"><?= e(trim($mp['first_name'] . ' ' . $mp['last_name'])) ?></span>
+                        <span style="font-size:13px;font-weight:600;color:var(--text-200)">
+                            <?= e(trim($mp['first_name'] . ' ' . $mp['last_name'])) ?>
+                            <?php if (!empty($mp['club'])): ?>
+                            <span class="text-muted" style="font-weight:500;font-size:11px"> · <?= e($mp['club']) ?></span>
+                            <?php endif; ?>
+                        </span>
                         <?php if (($mp['registration_status'] ?? '') === 'pending'): ?>
                             <span class="badge badge-upcoming" style="font-size:10px;padding:3px 8px">Pending</span>
                         <?php elseif (($mp['registration_status'] ?? '') === 'approved'): ?>
@@ -460,8 +474,19 @@ require_once __DIR__ . '/../includes/header.php';
                             + Add Player
                         </button>
                     </div>
+                    <?php
+                    $registrarClub = trim($player['club'] ?? '');
+                    $registrarPlace = trim($player['nationality'] ?? '');
+                    $inheritParts = array_filter([$registrarClub, $registrarPlace]);
+                    ?>
                     <p style="font-size: 11px; color: var(--text-400); margin-top: -6px; margin-bottom: 12px;">
-                        Enter each person who will play. The organizer will approve after payment is confirmed.
+                        Enter each person who will play.
+                        <?php if ($inheritParts): ?>
+                        They will be registered with your club/place: <strong style="color:var(--text-300)"><?= e(implode(' · ', $inheritParts)) ?></strong>.
+                        <?php else: ?>
+                        Set your club on <a href="profile.php" style="color:var(--primary-light)">My Profile</a> so players you register share the same club.
+                        <?php endif; ?>
+                        The organizer will approve after payment is confirmed.
                     </p>
                     
                     <div id="guestsContainer">
@@ -683,7 +708,11 @@ document.querySelectorAll('.js-view-roster-btn').forEach(function (btn) {
             roster.forEach(function (entry) {
                 const li = document.createElement('li');
                 li.style.cssText = 'padding:10px 12px;background:var(--bg-700);border-radius:var(--radius-sm);font-size:13px;font-weight:600;color:var(--text-200)';
-                li.textContent = entry.name || '';
+                let label = entry.name || '';
+                if (entry.club) {
+                    label += ' · ' + entry.club;
+                }
+                li.textContent = label;
                 list.appendChild(li);
             });
         }
