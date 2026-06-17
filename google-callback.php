@@ -79,11 +79,12 @@ try {
             exit;
         }
 
-        // Do NOT automatically log the user in. Redirect them to the login page to type their credentials.
-        $loginUrl = '/TournamentHQ/login.php' . ($oauthRole === 'organizer' ? '?role=organizer' : '');
+        // Auto-login the user with Google OAuth
         clearGoogleOAuthSession();
-        setFlash('success', 'Google account linked! Please enter your username and password below to log in.');
-        header('Location: ' . $loginUrl);
+        $_SESSION['user_id'] = $user['id'];
+        $_SESSION['username'] = $user['username'];
+        $_SESSION['role'] = $user['role'];
+        header('Location: ' . getDashboardUrl($user['role']));
         exit;
     }
 
