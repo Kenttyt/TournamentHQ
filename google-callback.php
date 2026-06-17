@@ -79,6 +79,20 @@ try {
             exit;
         }
 
+        // Block organizer Google login if account is linked as player (and vice versa)
+        if ($oauthRole === 'organizer' && $user['role'] === 'player') {
+            clearGoogleOAuthSession();
+            setFlash('danger', 'This Google account is linked to a <strong>Player account</strong>. Please use the Player sign-in instead.');
+            header('Location: /TournamentHQ/login.php?role=organizer');
+            exit;
+        }
+        if ($oauthRole === '' && $user['role'] === 'organizer') {
+            clearGoogleOAuthSession();
+            setFlash('danger', 'This Google account is linked to an <strong>Organizer account</strong>. Please use the Organizer sign-in instead.');
+            header('Location: /TournamentHQ/login.php');
+            exit;
+        }
+
         // Auto-login the user with Google OAuth
         clearGoogleOAuthSession();
         $_SESSION['user_id'] = $user['id'];
