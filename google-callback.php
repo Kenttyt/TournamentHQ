@@ -84,6 +84,7 @@ try {
         $_SESSION['user_id'] = $user['id'];
         $_SESSION['username'] = $user['username'];
         $_SESSION['role'] = $user['role'];
+        $_SESSION['email'] = $user['email'];
         header('Location: ' . getDashboardUrl($user['role']));
         exit;
     }
