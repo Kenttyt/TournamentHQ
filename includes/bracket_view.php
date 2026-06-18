@@ -56,6 +56,7 @@ if (empty($bracketGroups)): ?>
         function renderBracketRoundColumn(array $group, ?string $recordResultUrl, string $extraClass = '') {
             global $koMatchNumber;
             global $participantSeeds;
+            global $bracketEntrantLabel;
             $isGroupRound = preg_match('/^Group [A-Z]/i', $group['label']);
             
             // Calculate standings dynamically for this group
@@ -272,8 +273,29 @@ if (empty($bracketGroups)): ?>
                             <?php endif; ?>
                         </div>
                         <?php if ($m['status'] === 'completed' && !empty($m['set_scores'])): ?>
-                            <div style="padding: 4px 12px; text-align: center; font-size: 10px; color: var(--text-400); border-top: 1px solid rgba(255,255,255,0.03); background: rgba(0,0,0,0.1); font-family: monospace; letter-spacing: 0.5px;">
-                                <?= e(str_replace(',', '  ', $m['set_scores'])) ?>
+                            <div style="padding: 4px 12px; font-size: 10px; color: var(--text-400); border-top: 1px solid rgba(255,255,255,0.03); background: rgba(0,0,0,0.1); line-height: 1.4;">
+                                <?php 
+                                if (strpos($m['set_scores'], '|') !== false) {
+                                    $games = explode(',', $m['set_scores']);
+                                    $renderedGames = [];
+                                    $gameNum = 1;
+                                    foreach ($games as $game) {
+                                        $parts = explode('|', $game);
+                                        if (count($parts) >= 3) {
+                                            $p1Name = !empty($parts[0]) ? $parts[0] : 'T1 Player';
+                                            $p2Name = !empty($parts[1]) ? $parts[1] : 'T2 Player';
+                                            $score = $parts[2];
+                                            if (!empty($score)) {
+                                                $renderedGames[] = "G{$gameNum}: {$p1Name} vs {$p2Name} ({$score})";
+                                            }
+                                        }
+                                        $gameNum++;
+                                    }
+                                    echo implode('<br>', array_map('e', $renderedGames));
+                                } else {
+                                    echo '<span style="font-family: monospace; letter-spacing: 0.5px;">' . e(str_replace(',', '  ', $m['set_scores'])) . '</span>';
+                                }
+                                ?>
                             </div>
                         <?php endif; ?>
                         <?php if ($isByeMatch): ?>
