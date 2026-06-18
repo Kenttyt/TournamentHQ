@@ -79,6 +79,9 @@ require_once __DIR__ . '/../includes/header.php';
     <div class="card-body">
         <?php
         $showOnlyPhase = 'all';
+        $bracketIsTeamEvent = !empty($tournament['is_team_event']);
+        $bracketEntrantLabel = $bracketIsTeamEvent ? 'team' : 'player';
+        $bracketEntrantLabelPlural = $bracketIsTeamEvent ? 'teams' : 'players';
         include __DIR__ . '/../includes/bracket_view.php';
         ?>
     </div>

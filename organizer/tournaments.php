@@ -22,6 +22,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (empty($sport) || $sport === 'custom') {
             $sport = $sportCustom ?: 'Table Tennis';
         }
+        $isTeamEvents = $_POST['cat_is_team_event'] ?? [];
         
         $startDate   = $_POST['start_date'] ?? '';
         $endDate     = $_POST['end_date'] ?? '';
@@ -41,6 +42,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $maxPlayers = (int)($catMaxPlayers[$i] ?? 16);
             if ($maxPlayers < 2) $maxPlayers = 16;
             
+            $isTeamEvent = !empty($isTeamEvents[$i]) ? 1 : 0;
+            
             createTournament([
                 'organizer_id'   => $userId,
                 'name'           => $baseName . ' (' . $catName . ')',
@@ -58,6 +61,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'prize_3rd'      => trim($catPrize3rd[$i] ?? ''),
                 'prize_4th'      => trim($catPrize4th[$i] ?? ''),
                 'registration_fee' => trim($catRegFees[$i] ?? ''),
+                'is_team_event'  => $isTeamEvent,
             ]);
             $createdCount++;
         }
@@ -80,6 +84,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'prize_3rd'      => '',
                 'prize_4th'      => '',
                 'registration_fee' => '',
+                'is_team_event' => 0,
             ]);
         }
         
@@ -101,6 +106,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 if (empty($sport) || $sport === 'custom') {
                     $sport = $sportCustom ?: 'Table Tennis';
                 }
+                $isTeamEvent = !empty($_POST['cat_is_team_event'][0]) ? 1 : 0;
                 updateTournament($id, [
                     'name'        => trim($_POST['name'] ?? $existing['name']),
                     'sport'       => $sport,
@@ -117,6 +123,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     'prize_3rd'      => trim($_POST['prize_3rd'] ?? $existing['prize_3rd']),
                     'prize_4th'      => trim($_POST['prize_4th'] ?? $existing['prize_4th']),
                     'registration_fee' => trim($_POST['registration_fee'] ?? $existing['registration_fee']),
+                    'is_team_event' => $isTeamEvent,
                 ]);
                 setFlash('success', 'Tournament updated.');
             }
@@ -165,6 +172,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $lastNames = [$lastNames];
         }
 
+        $tournament = $tid ? getTournamentById($tid) : null;
+        $isTeamEvent = !empty($tournament['is_team_event']);
+
         $participants = [];
         $count = max(count($firstNames), count($lastNames));
         for ($i = 0; $i < $count; $i++) {
@@ -173,10 +183,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if ($first === '' && $last === '') {
                 continue;
             }
-            if ($first === '' || $last === '') {
-                $participants = [];
-                setFlash('danger', 'Please enter both first name and last name for every participant.');
-                header('Location: tournaments.php'); exit;
+            if ($isTeamEvent) {
+                if ($first === '') {
+                    $participants = [];
+                    setFlash('danger', 'Please enter a team name for every participant.');
+                    header('Location: tournaments.php'); exit;
+                }
+                $last = '';
+            } else {
+                if ($first === '' || $last === '') {
+                    $participants = [];
+                    setFlash('danger', 'Please enter both first name and last name for every participant.');
+                    header('Location: tournaments.php'); exit;
+                }
             }
             $participants[] = ['first' => $first, 'last' => $last];
         }
@@ -496,6 +515,7 @@ function renderTournamentCard(array $t, int $userId): void {
                     data-tid="<?= (int) $t['id'] ?>"
                     data-tname="<?= e($t['name']) ?>"
                     data-available="<?= max(0, $t['max_players'] - $t['registered_count']) ?>"
+                    data-team-event="<?= !empty($t['is_team_event']) ? '1' : '0' ?>"
                     <?= $isFull ? 'disabled style="opacity: 0.5; cursor: not-allowed; background: var(--bg-600); color: var(--text-400);"' : '' ?>
                 ><?= $isFull ? 'Full' : '+ Player' ?></button>
             </div>
@@ -620,6 +640,12 @@ require_once __DIR__ . '/../includes/header.php';
                                     <input type="number" name="cat_max_players[]" class="form-control" value="16" min="2" placeholder="e.g. 16">
                                 </div>
                             </div>
+                            <div style="margin-bottom: 12px;">
+                                <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin:0">
+                                    <input type="checkbox" name="cat_is_team_event[]" value="1" class="cat-team-toggle" style="width:16px;height:16px;cursor:pointer" onchange="toggleCategoryTeamEvent(this)">
+                                    <span style="font-size:12px;color:var(--text-400);font-weight:500">This is a team category</span>
+                                </label>
+                            </div>
                             <?php $namePrefix = 'cat_'; $values = []; include __DIR__ . '/../includes/tournament_prize_fields.php'; ?>
                         </div>
 
@@ -723,6 +749,12 @@ require_once __DIR__ . '/../includes/header.php';
                     <label class="form-label">Category *</label>
                     <input type="text" name="category" id="etCategory" class="form-control" required placeholder="e.g. Open Singles">
                 </div>
+                <div style="margin-bottom: 16px;">
+                    <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin:0">
+                        <input type="checkbox" name="cat_is_team_event[]" id="etTeamEvent" value="1" class="cat-team-toggle" style="width:16px;height:16px;cursor:pointer" onchange="toggleEditCategoryTeamEvent(this)">
+                        <span style="font-size:12px;color:var(--text-400);font-weight:500">This is a team category</span>
+                    </label>
+                </div>
                 <div class="form-row">
                     <div class="form-group">
                         <label class="form-label">Start Date</label>
@@ -754,11 +786,20 @@ require_once __DIR__ . '/../includes/header.php';
 <script>
 var regAvailableSlots = 999;
 
-function openRegModal(tid, name, available) {
+function openRegModal(tid, name, available, teamEvent) {
     regAvailableSlots = available;
+    window._isTeamEvent = teamEvent === '1' || teamEvent === 1;
     document.getElementById('regTId').value = tid;
     document.getElementById('regTName').textContent = 'Tournament: ' + name;
     document.getElementById('regSlotsInfo').textContent = available + ' slot' + (available !== 1 ? 's' : '') + ' available';
+
+    // Update labels for team events
+    var addBtn = document.getElementById('addParticipantBtn');
+    if (addBtn) {
+        addBtn.innerHTML = window._isTeamEvent
+            ? '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right: 6px;"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Add another team'
+            : '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right: 6px;"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Add another participant';
+    }
 
     // Reset to a single row
     var container = document.getElementById('participantRows');
@@ -768,6 +809,30 @@ function openRegModal(tid, name, available) {
     var firstRow = container.querySelector('.participant-row');
     if (firstRow) {
         firstRow.querySelectorAll('input').forEach(function(inp) { inp.value = ''; });
+        if (window._isTeamEvent) {
+            firstRow.style = 'display:grid; grid-template-columns: 1fr auto; gap:10px; align-items:center; margin-bottom:10px; padding:10px; background: rgba(255,255,255,0.02); border: 1px solid var(--border); border-radius: var(--radius-sm);';
+            firstRow.innerHTML = `
+                <div class="form-group" style="margin:0;">
+                    <input type="text" name="first_name[]" class="form-control" placeholder="Team Name">
+                </div>
+                <button type="button" class="btn btn-danger btn-sm" onclick="removeParticipantRow(this)" style="padding:0; width:38px; height:38px; display:flex; align-items:center; justify-content:center;">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
+                </button>
+            `;
+        } else {
+            firstRow.style = 'display:grid; grid-template-columns: 1fr 1fr auto; gap:10px; align-items:center; margin-bottom:10px; padding:10px; background: rgba(255,255,255,0.02); border: 1px solid var(--border); border-radius: var(--radius-sm);';
+            firstRow.innerHTML = `
+                <div class="form-group" style="margin:0;">
+                    <input type="text" name="first_name[]" class="form-control" required placeholder="First Name">
+                </div>
+                <div class="form-group" style="margin:0;">
+                    <input type="text" name="last_name[]" class="form-control" required placeholder="Last Name">
+                </div>
+                <button type="button" class="btn btn-danger btn-sm" onclick="removeParticipantRow(this)" style="padding:0; width:38px; height:38px; display:flex; align-items:center; justify-content:center;">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
+                </button>
+            `;
+        }
     }
 
     updateAddBtnState();
@@ -805,18 +870,30 @@ function addParticipantRow() {
     }
     var row = document.createElement('div');
     row.className = 'participant-row';
-    row.style = 'display:grid; grid-template-columns: 1fr 1fr auto; gap:10px; align-items:center; margin-bottom:10px; padding:10px; background: rgba(255,255,255,0.02); border: 1px solid var(--border); border-radius: var(--radius-sm);';
-    row.innerHTML = `
-        <div class="form-group" style="margin:0;">
-            <input type="text" name="first_name[]" class="form-control" required placeholder="First Name">
-        </div>
-        <div class="form-group" style="margin:0;">
-            <input type="text" name="last_name[]" class="form-control" required placeholder="Last Name">
-        </div>
-        <button type="button" class="btn btn-danger btn-sm" onclick="removeParticipantRow(this)" style="padding:0; width:38px; height:38px; display:flex; align-items:center; justify-content:center;">
-            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
-        </button>
-    `;
+    if (window._isTeamEvent) {
+        row.style = 'display:grid; grid-template-columns: 1fr auto; gap:10px; align-items:center; margin-bottom:10px; padding:10px; background: rgba(255,255,255,0.02); border: 1px solid var(--border); border-radius: var(--radius-sm);';
+        row.innerHTML = `
+            <div class="form-group" style="margin:0;">
+                <input type="text" name="first_name[]" class="form-control" placeholder="Team Name">
+            </div>
+            <button type="button" class="btn btn-danger btn-sm" onclick="removeParticipantRow(this)" style="padding:0; width:38px; height:38px; display:flex; align-items:center; justify-content:center;">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
+            </button>
+        `;
+    } else {
+        row.style = 'display:grid; grid-template-columns: 1fr 1fr auto; gap:10px; align-items:center; margin-bottom:10px; padding:10px; background: rgba(255,255,255,0.02); border: 1px solid var(--border); border-radius: var(--radius-sm);';
+        row.innerHTML = `
+            <div class="form-group" style="margin:0;">
+                <input type="text" name="first_name[]" class="form-control" required placeholder="First Name">
+            </div>
+            <div class="form-group" style="margin:0;">
+                <input type="text" name="last_name[]" class="form-control" required placeholder="Last Name">
+            </div>
+            <button type="button" class="btn btn-danger btn-sm" onclick="removeParticipantRow(this)" style="padding:0; width:38px; height:38px; display:flex; align-items:center; justify-content:center;">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
+            </button>
+        `;
+    }
     container.appendChild(row);
     updateAddBtnState();
 }
@@ -858,6 +935,12 @@ function addCategoryRow() {
                 <input type="number" name="cat_max_players[]" class="form-control" value="16" min="2" placeholder="e.g. 16">
             </div>
         </div>
+        <div style="margin-bottom: 12px;">
+            <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin:0">
+                <input type="checkbox" name="cat_is_team_event[]" value="1" class="cat-team-toggle" style="width:16px;height:16px;cursor:pointer" onchange="toggleCategoryTeamEvent(this)">
+                <span style="font-size:12px;color:var(--text-400);font-weight:500">This is a team category</span>
+            </label>
+        </div>
         <div class="prize-pool-fields">
             <label class="form-label" style="margin-bottom: 10px;">Prize Pool</label>
             <div class="form-row">
@@ -883,6 +966,7 @@ function addCategoryRow() {
             <div class="form-group" style="margin-top: 14px; margin-bottom: 0;">
                 <label class="form-label">Registration Fee</label>
                 <input type="text" name="cat_registration_fee[]" class="form-control" placeholder="e.g. ₱500 or Free">
+                <span class="form-hint">Amount each player pays to join this tournament (leave blank if none).</span>
             </div>
         </div>
     `;
@@ -964,6 +1048,8 @@ function openEditTournament(t) {
     if (customInput) {
         customInput.value = sportOptions.includes(sportVal) ? '' : sportVal;
     }
+    document.getElementById('etTeamEvent').checked = !!t.is_team_event;
+    toggleEditCategoryTeamEvent(document.getElementById('etTeamEvent'));
 
     document.getElementById('etStart').value  = t.start_date;
     document.getElementById('etEnd').value    = t.end_date || '';
@@ -1023,7 +1109,8 @@ document.querySelectorAll('.js-org-register-player').forEach(function (btn) {
         openRegModal(
             parseInt(btn.getAttribute('data-tid'), 10),
             btn.getAttribute('data-tname') || '',
-            parseInt(btn.getAttribute('data-available'), 10) || 0
+            parseInt(btn.getAttribute('data-available'), 10) || 0,
+            btn.getAttribute('data-team-event') || '0'
         );
     });
 });
@@ -1036,5 +1123,39 @@ function toggleCreateCustomSport(val) {
 function toggleEditCustomSport(val) {
     var group = document.getElementById('editCustomSportGroup');
     if (group) group.style.display = val === 'custom' ? 'block' : 'none';
+}
+
+function toggleCategoryTeamEvent(checkbox) {
+    var block = checkbox.closest('.category-row-block');
+    if (!block) return;
+    var maxInput = block.querySelector('input[name="cat_max_players[]"]');
+    var maxLabel = maxInput ? maxInput.closest('.form-group').querySelector('.form-label') : null;
+    var feeHint = block.querySelector('.form-hint');
+    
+    if (checkbox.checked) {
+        if (maxLabel) maxLabel.textContent = 'Max Teams';
+        if (maxInput) maxInput.placeholder = 'e.g. 8';
+        if (feeHint) feeHint.textContent = 'Amount each team pays to join this tournament (leave blank if none).';
+    } else {
+        if (maxLabel) maxLabel.textContent = 'Max Players';
+        if (maxInput) maxInput.placeholder = 'e.g. 16';
+        if (feeHint) feeHint.textContent = 'Amount each player pays to join this tournament (leave blank if none).';
+    }
+}
+
+function toggleEditCategoryTeamEvent(checkbox) {
+    var modal = checkbox.closest('.modal');
+    if (!modal) return;
+    var maxInput = modal.querySelector('#etMax');
+    var maxLabel = maxInput ? maxInput.closest('.form-group').querySelector('.form-label') : null;
+    var feeHint = modal.querySelector('#etPrizeFields .form-hint');
+    
+    if (checkbox.checked) {
+        if (maxLabel) maxLabel.textContent = 'Max Teams';
+        if (feeHint) feeHint.textContent = 'Amount each team pays to join this tournament (leave blank if none).';
+    } else {
+        if (maxLabel) maxLabel.textContent = 'Max Players';
+        if (feeHint) feeHint.textContent = 'Amount each player pays to join this tournament (leave blank if none).';
+    }
 }
 </script>

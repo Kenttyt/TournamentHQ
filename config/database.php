@@ -55,6 +55,12 @@ class Database {
             $pdo->exec("ALTER TABLE tournaments ADD COLUMN sport VARCHAR(100) DEFAULT 'Table Tennis' AFTER name");
         }
 
+        // tournaments.is_team_event
+        try { $pdo->query("SELECT is_team_event FROM tournaments LIMIT 1"); }
+        catch (PDOException $e) {
+            $pdo->exec("ALTER TABLE tournaments ADD COLUMN is_team_event TINYINT(1) NOT NULL DEFAULT 0 AFTER sport");
+        }
+
         // tournament_guests table (full modern schema)
         try { $pdo->query("SELECT id FROM tournament_guests LIMIT 1"); }
         catch (PDOException $e) {

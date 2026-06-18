@@ -51,12 +51,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $playerId > 0) {
                 // Parse guests
                 $guestFirsts = $_POST['guest_first'] ?? [];
                 $guestLasts  = $_POST['guest_last'] ?? [];
+                $isTeamEvent = !empty($t['is_team_event']);
                 $guestsToRegister = [];
                 for ($i = 0; $i < count($guestFirsts); $i++) {
                     $gFirst = trim($guestFirsts[$i] ?? '');
                     $gLast  = trim($guestLasts[$i] ?? '');
-                    if ($gFirst !== '' && $gLast !== '') {
-                        $guestsToRegister[] = ['first' => $gFirst, 'last' => $gLast];
+                    if ($isTeamEvent) {
+                        if ($gFirst !== '') {
+                            $guestsToRegister[] = ['first' => $gFirst, 'last' => ''];
+                        }
+                    } else {
+                        if ($gFirst !== '' && $gLast !== '') {
+                            $guestsToRegister[] = ['first' => $gFirst, 'last' => $gLast];
+                        }
                     }
                 }
                 
@@ -300,6 +307,7 @@ require_once __DIR__ . '/../includes/header.php';
                                                     data-fee="<?= e(formatRegistrationFee($t)) ?>"
                                                     data-requires-proof="<?= tournamentRequiresPaymentProof($t) ? '1' : '0' ?>"
                                                     data-email-missing="<?= $emailMissing ? '1' : '0' ?>"
+                                                    data-team-event="<?= !empty($t['is_team_event']) ? '1' : '0' ?>"
                                                 >+ Add</button>
                                             <?php endif; ?>
                                             <?php if ($t['status'] === 'upcoming' && ($isApproved || $isPending)): ?>
@@ -330,6 +338,7 @@ require_once __DIR__ . '/../includes/header.php';
                                                 data-fee="<?= e(formatRegistrationFee($t)) ?>"
                                                 data-requires-proof="<?= tournamentRequiresPaymentProof($t) ? '1' : '0' ?>"
                                                 data-email-missing="<?= $emailMissing ? '1' : '0' ?>"
+                                                data-team-event="<?= !empty($t['is_team_event']) ? '1' : '0' ?>"
                                             >Register Players</button>
                                         <?php endif; ?>
                                     <?php endif; ?>
@@ -538,7 +547,7 @@ require_once __DIR__ . '/../includes/header.php';
 <script>
 let currentSlotsRemaining = 16;
 
-function openJoinModal(tid, tname, tdesc, pname, slotsRemaining, regFee, requiresProof) {
+function openJoinModal(tid, tname, tdesc, pname, slotsRemaining, regFee, requiresProof, teamEvent) {
     document.getElementById('joinTId').value = tid;
     document.getElementById('joinTName').textContent = tname;
     const descWrapper = document.getElementById('joinTDescriptionWrapper');
@@ -578,7 +587,23 @@ function openJoinModal(tid, tname, tdesc, pname, slotsRemaining, regFee, require
     if (noProofCheckbox) {
         noProofCheckbox.checked = false;
     }
-    
+
+    window._isTeamEvent = teamEvent === '1' || teamEvent === 1;
+
+    // Update labels for team events
+    var addBtn = document.querySelector('#joinTournamentModal .btn-outline[onclick*="addGuestRow"]');
+    var labelEl = document.querySelector('#joinTournamentModal .form-label[style*="font-weight: 700"]');
+    var hintEl = document.querySelector('#joinTournamentModal p[style*="font-size: 11px"]');
+    if (window._isTeamEvent) {
+        if (addBtn) addBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right: 6px;"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> + Add Team';
+        if (labelEl) labelEl.innerHTML = 'Teams to register <span style="color: var(--danger);">*</span>';
+        if (hintEl) hintEl.textContent = 'Enter each team that will play. The organizer will approve after payment is confirmed.';
+    } else {
+        if (addBtn) addBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right: 6px;"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> + Add Player';
+        if (labelEl) labelEl.innerHTML = 'Players to register <span style="color: var(--danger);">*</span>';
+        if (hintEl) hintEl.innerHTML = 'Enter each person who will play.' + ('<?= $inheritParts ? e(implode(' · ', $inheritParts)) : '' ?>' ? ' They will be registered with your club/place: <strong style="color:var(--text-300)"><?= $inheritParts ? e(implode(' · ', $inheritParts)) : '' ?></strong>.' : ' Set your club on <a href="profile.php" style="color:var(--primary-light)">My Profile</a> so players you register share the same club.') + ' The organizer will approve after payment is confirmed.';
+    }
+
     document.getElementById('guestsContainer').innerHTML = '';
     addGuestRow();
     
@@ -595,27 +620,31 @@ function openJoinModal(tid, tname, tdesc, pname, slotsRemaining, regFee, require
 
 document.getElementById('joinForm')?.addEventListener('submit', function (e) {
     let filled = 0;
+    const isTeamEvent = window._isTeamEvent;
     document.querySelectorAll('#guestsContainer .guest-row').forEach(function (row) {
         const first = row.querySelector('input[name="guest_first[]"]');
         const last = row.querySelector('input[name="guest_last[]"]');
-        if (!first || !last) return;
+        if (!first) return;
         const hasFirst = first.value.trim() !== '';
-        const hasLast = last.value.trim() !== '';
-        if (!hasFirst && !hasLast) {
+        const hasLast = last ? last.value.trim() !== '' : false;
+        if (!hasFirst) {
             first.removeAttribute('name');
-            last.removeAttribute('name');
+            if (last) last.removeAttribute('name');
             return;
         }
-        if (!hasFirst || !hasLast) {
+        if (!isTeamEvent && !hasLast) {
             e.preventDefault();
             alert('Please enter both first and last name for each player.');
             return;
+        }
+        if (last && !hasFirst) {
+            last.removeAttribute('name');
         }
         filled++;
     });
     if (!e.defaultPrevented && filled < 1) {
         e.preventDefault();
-        alert('Add at least one player. Your account profile is not registered for the tournament.');
+        alert(isTeamEvent ? 'Add at least one team.' : 'Add at least one player.');
         return;
     }
     const proofInput = document.getElementById('paymentProofFile');
@@ -654,7 +683,7 @@ function addGuestRow() {
     
     const currentGuestsCount = guestRows.length;
     if (currentGuestsCount + 1 > currentSlotsRemaining) {
-        alert('Cannot add more players. The number of players would exceed available tournament slots.');
+        alert(window._isTeamEvent ? 'Cannot add more teams. The number of teams would exceed available tournament slots.' : 'Cannot add more players. The number of players would exceed available tournament slots.');
         return;
     }
     
@@ -662,25 +691,38 @@ function addGuestRow() {
     const div = document.createElement('div');
     div.className = 'guest-row';
     div.id = rowId;
-    div.style = 'display: grid; grid-template-columns: 1fr 1fr auto; gap: 10px; align-items: center; margin-bottom: 10px; padding: 10px; background: rgba(255,255,255,0.02); border: 1px solid var(--border); border-radius: var(--radius-sm);';
-    div.innerHTML = `
-        <div class="form-group" style="margin: 0;">
-            <input type="text" name="guest_first[]" class="form-control" placeholder="First Name" style="height: 38px;">
-        </div>
-        <div class="form-group" style="margin: 0;">
-            <input type="text" name="guest_last[]" class="form-control" placeholder="Last Name" style="height: 38px;">
-        </div>
-        <button type="button" class="btn btn-danger btn-sm" onclick="removeGuestRow('${rowId}')" style="padding: 0; width: 38px; height: 38px; display: flex; align-items: center; justify-content: center;">
-            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
-        </button>
-    `;
+    
+    if (window._isTeamEvent) {
+        div.style = 'display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: center; margin-bottom: 10px; padding: 10px; background: rgba(255,255,255,0.02); border: 1px solid var(--border); border-radius: var(--radius-sm);';
+        div.innerHTML = `
+            <div class="form-group" style="margin: 0;">
+                <input type="text" name="guest_first[]" class="form-control" placeholder="Team Name" style="height: 38px;">
+            </div>
+            <button type="button" class="btn btn-danger btn-sm" onclick="removeGuestRow('${rowId}')" style="padding: 0; width: 38px; height: 38px; display: flex; align-items: center; justify-content: center;">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
+            </button>
+        `;
+    } else {
+        div.style = 'display: grid; grid-template-columns: 1fr 1fr auto; gap: 10px; align-items: center; margin-bottom: 10px; padding: 10px; background: rgba(255,255,255,0.02); border: 1px solid var(--border); border-radius: var(--radius-sm);';
+        div.innerHTML = `
+            <div class="form-group" style="margin: 0;">
+                <input type="text" name="guest_first[]" class="form-control" placeholder="First Name" style="height: 38px;">
+            </div>
+            <div class="form-group" style="margin: 0;">
+                <input type="text" name="guest_last[]" class="form-control" placeholder="Last Name" style="height: 38px;">
+            </div>
+            <button type="button" class="btn btn-danger btn-sm" onclick="removeGuestRow('${rowId}')" style="padding: 0; width: 38px; height: 38px; display: flex; align-items: center; justify-content: center;">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
+            </button>
+        `;
+    }
     container.appendChild(div);
 }
 
 function removeGuestRow(id) {
     const container = document.getElementById('guestsContainer');
     if (container && container.querySelectorAll('.guest-row').length <= 1) {
-        alert('At least one player is required. Your account profile is not registered for the tournament.');
+        alert(window._isTeamEvent ? 'At least one team is required.' : 'At least one player is required. Your account profile is not registered for the tournament.');
         return;
     }
     const el = document.getElementById(id);
@@ -748,7 +790,8 @@ document.querySelectorAll('.js-join-tournament-btn').forEach(function (btn) {
             btn.getAttribute('data-pname') || '',
             parseInt(btn.getAttribute('data-slots'), 10) || 0,
             btn.getAttribute('data-fee') || '',
-            btn.getAttribute('data-requires-proof') || '0'
+            btn.getAttribute('data-requires-proof') || '0',
+            btn.getAttribute('data-team-event') || '0'
         );
     });
 });

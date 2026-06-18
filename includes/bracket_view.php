@@ -3,11 +3,24 @@
 /** @var int $tid */
 /** @var string $recordResultUrl */
 
+if (!isset($bracketEntrantLabel)) {
+    $bracketIsTeamEvent = false;
+    if (!empty($tid) && isset($tournament) && !empty($tournament)) {
+        $bracketIsTeamEvent = !empty($tournament['is_team_event']);
+    } elseif (!empty($tid) && function_exists('db')) {
+        try {
+            $bracketIsTeamEvent = (int) db()->query("SELECT is_team_event FROM tournaments WHERE id = " . (int)$tid)->fetchColumn() === 1;
+        } catch (Exception $e) {}
+    }
+    $bracketEntrantLabel = $bracketIsTeamEvent ? 'team' : 'player';
+    $bracketEntrantLabelPlural = $bracketIsTeamEvent ? 'teams' : 'players';
+}
+
 if (empty($bracketGroups)): ?>
     <div class="empty-state" style="padding: 40px;">
         <h3>No bracket yet</h3>
         <?php if (!empty($recordResultUrl)): ?>
-            <p>Select a tournament, choose <strong>players per group</strong>, then click <strong>Generate Bracket</strong>.</p>
+            <p>Select a tournament, choose <strong><?= $bracketEntrantLabelPlural ?? 'players' ?> per group</strong>, then click <strong>Generate Bracket</strong>.</p>
         <?php else: ?>
             <p>The bracket for this tournament has not been generated yet. Please check back once registration is closed and the tournament starts!</p>
         <?php endif; ?>
@@ -124,7 +137,7 @@ if (empty($bracketGroups)): ?>
                             <thead>
                                 <tr style="border-bottom: 1px solid var(--border); color: var(--text-400); font-size: 10px;">
                                     <th style="text-align: center; width: 24px;">#</th>
-                                    <th>Player</th>
+                                    <th><?= ucfirst($bracketEntrantLabel ?? 'Player') ?></th>
                                     <th style="text-align: center; width: 20px;">P</th>
                                     <th style="text-align: center; width: 20px;">W</th>
                                     <th style="text-align: center; width: 20px;">L</th>
@@ -218,7 +231,7 @@ if (empty($bracketGroups)): ?>
                                             data-slot="1" 
                                             data-player-name="<?= e($p1Name) ?>" 
                                             style="background: none; border: none; color: var(--accent); cursor: pointer; padding: 2px 8px; font-size: 13px; font-weight: 700; margin-left: auto; display: inline-flex; align-items: center; transition: transform 0.2s;"
-                                            title="Swap Player position"
+                                            title="Swap <?= ucfirst($bracketEntrantLabel ?? 'Player') ?> position"
                                             onmouseover="this.style.transform='scale(1.25)'"
                                             onmouseout="this.style.transform='scale(1)'">
                                         ⇄
@@ -247,7 +260,7 @@ if (empty($bracketGroups)): ?>
                                             data-slot="2" 
                                             data-player-name="<?= e($p2Name) ?>" 
                                             style="background: none; border: none; color: var(--accent); cursor: pointer; padding: 2px 8px; font-size: 13px; font-weight: 700; margin-left: auto; display: inline-flex; align-items: center; transition: transform 0.2s;"
-                                            title="Swap Player position"
+                                            title="Swap <?= ucfirst($bracketEntrantLabel ?? 'Player') ?> position"
                                             onmouseover="this.style.transform='scale(1.25)'"
                                             onmouseout="this.style.transform='scale(1)'">
                                         ⇄
@@ -832,7 +845,7 @@ if (empty($bracketGroups)): ?>
                 <input type="hidden" name="slot1" id="swapSlot1">
                 <div class="modal-body">
                     <p style="font-size: 13px; color: var(--text-200); margin-bottom: 16px;">
-                        Swap <strong id="swapSourcePlayerName" style="color: var(--accent);"></strong> with another participant in the first round to balance the bracket:
+                        Swap <strong id="swapSourcePlayerName" style="color: var(--accent);"></strong> with another <?= $bracketEntrantLabel ?? 'player' ?> in the first round to balance the bracket:
                     </p>
                     <div class="form-group">
                         <label class="form-label">Swap With</label>

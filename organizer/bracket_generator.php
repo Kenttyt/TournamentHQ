@@ -31,11 +31,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $result = generateTournamentBracket($postTid, !empty($_POST['shuffle']), true, $groupSize);
         $sizeParam = ($rawSize === 'all') ? 'all' : $groupSize;
         if ($result['ok']) {
+            $postTournament = getTournamentById($postTid);
+            $isTeamEvent = !empty($postTournament['is_team_event']);
+            $entrantLabel = $isTeamEvent ? 'team' : 'player';
+            $entrantLabelPlural = $isTeamEvent ? 'teams' : 'players';
             $msg = 'Bracket generated: ' . $result['matches'] . ' match(es) across '
-                . $result['groups'] . ' group(s) (' . $result['group_size'] . ' players per group).';
+                . $result['groups'] . ' group(s) (' . $result['group_size'] . ' ' . $entrantLabelPlural . ' per group).';
             if (!empty($result['merged'])) {
                 $parts = array_map(fn($m) => $m['player'] . ' → ' . $m['group'], $result['merged']);
-                $msg .= ' Extra player(s) placed randomly: ' . implode('; ', $parts) . '.';
+                $msg .= ' Extra ' . $entrantLabel . '(s) placed randomly: ' . implode('; ', $parts) . '.';
             }
             setFlash('success', $msg);
             header('Location: bracket_generator.php?tournament_id=' . $postTid . '&group_size=' . $sizeParam);

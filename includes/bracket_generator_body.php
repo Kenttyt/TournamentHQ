@@ -3,11 +3,14 @@
  * Shared UI for Auto Bracket Generator
  * Expects: $tournaments, $tid, $tournament, $entrants, $bracketGroups, $formAction, $selectedGroupSize
  */
+$isTeamEvent = !empty($tournament['is_team_event']);
+$entrantLabel = $isTeamEvent ? 'team' : 'player';
+$entrantLabelPlural = $isTeamEvent ? 'teams' : 'players';
 ?>
 <div class="page-header">
     <div class="page-heading">
         <h1>Auto Bracket Generator</h1>
-        <p>Split participants into groups — choose players per group (round-robin within each group) or select All for a full round robin</p>
+        <p>Split participants into groups — choose <?= $entrantLabelPlural ?> per group (round-robin within each group) or select All for a full round robin</p>
     </div>
 </div>
 
@@ -47,7 +50,7 @@
         <div id="generatorCardBody" style="transition: max-height 0.3s ease-in-out, opacity 0.2s; max-height: 2000px; overflow: hidden; opacity: 1;">
             <div class="card-body">
                 <p class="text-sm text-muted" style="margin-bottom: 16px;">
-                    <?= (int) count($entrants) ?> participant(s) registered (account players and guests)
+                    <?= (int) count($entrants) ?> <?= $entrantLabelPlural ?> registered
                 </p>
 
                 <?php if (count($entrants) < 2): ?>
@@ -66,7 +69,7 @@
                         <input type="hidden" name="tournament_id" value="<?= $tid ?>">
                         <div style="display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-end; margin-bottom: 16px;">
                             <div class="form-group" style="margin: 0; min-width: 200px;">
-                                <label class="form-label">Players per group</label>
+                                <label class="form-label"><?= ucfirst($entrantLabelPlural) ?> per group</label>
                                 <select name="group_size" class="form-select" id="groupSizeSelect">
                                     <option value="2" <?= !$isAllRR && $groupSize === 2 ? 'selected' : '' ?>>2 — Head-to-head</option>
                                     <option value="3" <?= !$isAllRR && $groupSize === 3 ? 'selected' : '' ?>>3 — Round-robin</option>
@@ -75,15 +78,15 @@
                                 </select>
                                 <p class="text-xs text-muted" style="margin-top: 6px;" id="groupSizeHint">
                                     <?php if ($isAllRR): ?>
-                                        <?= $entrantCount ?> players → 1 group (full round robin · <?= $entrantCount * ($entrantCount - 1) / 2 ?> matches)
+                                        <?= $entrantCount ?> <?= $entrantLabelPlural ?> → 1 group (full round robin · <?= $entrantCount * ($entrantCount - 1) / 2 ?> matches)
                                     <?php else: ?>
-                                        <?= $entrantCount ?> players → about <?= $estimatedGroups ?> group(s)<?= ($entrantCount % $groupSize !== 0) ? ' (extra player goes to a random group)' : '' ?>
+                                        <?= $entrantCount ?> <?= $entrantLabelPlural ?> → about <?= $estimatedGroups ?> group(s)<?= ($entrantCount % $groupSize !== 0) ? ' (extra ' . $entrantLabel . ' goes to a random group)' : '' ?>
                                     <?php endif; ?>
                                 </p>
                             </div>
                             <label style="display: flex; align-items: center; gap: 8px; font-size: 13px; cursor: pointer; padding-bottom: 10px;">
                                 <input type="checkbox" name="shuffle" value="1">
-                                Randomize player order
+                                Randomize <?= $entrantLabel ?> order
                             </label>
                         </div>
                         <button type="submit" class="btn btn-primary">
@@ -96,7 +99,7 @@
                 <?php if (!empty($entrants)): ?>
                 <div style="margin-top: 20px; max-height: 200px; overflow-y: auto;">
                     <table class="data-table">
-                        <thead><tr><th>#</th><th>Player</th><th>Club</th></tr></thead>
+                        <thead><tr><th>#</th><th><?= ucfirst($entrantLabel) ?></th><th>Club</th></tr></thead>
                         <tbody>
                         <?php foreach ($entrants as $i => $p): ?>
                             <tr>
@@ -181,11 +184,14 @@
             </div>
         </div>
     </div>
-    <div id="bracketCardBody" style="transition: max-height 0.4s ease-in-out, opacity 0.2s; max-height: 5000px; overflow: hidden; opacity: 1;">
+        <div id="bracketCardBody" style="transition: max-height 0.4s ease-in-out, opacity 0.2s; max-height: 5000px; overflow: hidden; opacity: 1;">
         <div class="card-body">
             <?php
             $recordResultUrl = $formAction;
             $showOnlyPhase = 'group';
+            $bracketIsTeamEvent = !empty($tournament['is_team_event']);
+            $bracketEntrantLabel = $bracketIsTeamEvent ? 'team' : 'player';
+            $bracketEntrantLabelPlural = $bracketIsTeamEvent ? 'teams' : 'players';
             include __DIR__ . '/bracket_view.php';
             ?>
         </div>
@@ -436,6 +442,9 @@ if (!empty($bracketGroups)) {
                 <?php
                 $recordResultUrl = $formAction;
                 $showOnlyPhase = 'knockout';
+                $bracketIsTeamEvent = !empty($tournament['is_team_event']);
+                $bracketEntrantLabel = $bracketIsTeamEvent ? 'team' : 'player';
+                $bracketEntrantLabelPlural = $bracketIsTeamEvent ? 'teams' : 'players';
                 include __DIR__ . '/bracket_view.php';
                 ?>
             </div>
@@ -520,11 +529,11 @@ if (!empty($bracketGroups)) {
                 </div>
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
                     <div class="form-group">
-                        <label class="form-label" id="bracketP1Label">Player 1 sets</label>
+                        <label class="form-label" id="bracketP1Label"><?= ucfirst($entrantLabel) ?> 1 sets</label>
                         <input type="number" name="player1_score" class="form-control" min="0" value="0" required title="Sets won">
                     </div>
                     <div class="form-group">
-                        <label class="form-label" id="bracketP2Label">Player 2 sets</label>
+                        <label class="form-label" id="bracketP2Label"><?= ucfirst($entrantLabel) ?> 2 sets</label>
                         <input type="number" name="player2_score" class="form-control" min="0" value="0" required title="Sets won">
                     </div>
                 </div>
@@ -532,8 +541,8 @@ if (!empty($bracketGroups)) {
                     <label class="form-label" style="font-weight: 600; margin-bottom: 8px;">Set Scores (Points)</label>
                     <div style="display: grid; grid-template-columns: 60px 1fr 1fr; gap: 12px; align-items: center; margin-bottom: 8px; text-align: center;">
                         <span></span>
-                        <span id="bracketSetP1Header" style="font-size: 11px; font-weight: 700; color: var(--text-200); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 0 4px;">Player 1</span>
-                        <span id="bracketSetP2Header" style="font-size: 11px; font-weight: 700; color: var(--text-200); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 0 4px;">Player 2</span>
+                        <span id="bracketSetP1Header" style="font-size: 11px; font-weight: 700; color: var(--text-200); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 0 4px;"><?= ucfirst($entrantLabel) ?> 1</span>
+                        <span id="bracketSetP2Header" style="font-size: 11px; font-weight: 700; color: var(--text-200); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 0 4px;"><?= ucfirst($entrantLabel) ?> 2</span>
                     </div>
                     <div style="display: flex; flex-direction: column; gap: 8px;" id="setScoresContainer">
                         <?php for ($s = 1; $s <= 5; $s++): ?>
@@ -698,15 +707,15 @@ document.querySelector('#bracketResultModal form')?.addEventListener('submit', f
     select.addEventListener('change', function () {
         if (select.value === 'all') {
             const matches = total * (total - 1) / 2;
-            hint.textContent = total + ' players → 1 group (full round robin · ' + matches + ' matches)';
+            hint.textContent = total + ' <?= $entrantLabelPlural ?> → 1 group (full round robin · ' + matches + ' matches)';
             return;
         }
         const size = parseInt(select.value, 10) || 4;
         const groups = Math.ceil(total / size);
         const extra = total % size;
-        let text = total + ' players → about ' + groups + ' group(s)';
+        let text = total + ' <?= $entrantLabelPlural ?> → about ' + groups + ' group(s)';
         if (extra !== 0) {
-            text += ' (extra player goes to a random group)';
+            text += ' (extra <?= $entrantLabel ?> goes to a random group)';
         }
         hint.textContent = text;
     });

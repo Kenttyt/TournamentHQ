@@ -20,6 +20,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (empty($sport) || $sport === 'custom') {
             $sport = $sportCustom ?: 'Table Tennis';
         }
+        $isTeamEvents = $_POST['cat_is_team_event'] ?? [];
         
         $startDate   = $_POST['start_date'] ?? '';
         $endDate     = $_POST['end_date'] ?? '';
@@ -39,6 +40,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $maxPlayers = (int)($catMaxPlayers[$i] ?? 16);
             if ($maxPlayers < 2) $maxPlayers = 16;
             
+            $isTeamEvent = !empty($isTeamEvents[$i]) ? 1 : 0;
+            
             createTournament([
                 'organizer_id'   => $organizerId,
                 'name'           => $baseName . ' (' . $catName . ')',
@@ -56,6 +59,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'prize_3rd'      => trim($catPrize3rd[$i] ?? ''),
                 'prize_4th'      => trim($catPrize4th[$i] ?? ''),
                 'registration_fee' => trim($catRegFees[$i] ?? ''),
+                'is_team_event'  => $isTeamEvent,
             ]);
             $createdCount++;
         }
@@ -78,6 +82,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'prize_3rd'      => '',
                 'prize_4th'      => '',
                 'registration_fee' => '',
+                'is_team_event' => 0,
             ]);
         }
         
@@ -99,6 +104,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (empty($sport) || $sport === 'custom') {
             $sport = $sportCustom ?: 'Table Tennis';
         }
+        $isTeamEvent = !empty($_POST['cat_is_team_event'][0]) ? 1 : 0;
         updateTournament($id, [
             'name'        => trim($_POST['name'] ?? ''),
             'sport'       => $sport,
@@ -115,6 +121,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'prize_3rd'      => trim($_POST['prize_3rd'] ?? ''),
             'prize_4th'      => trim($_POST['prize_4th'] ?? ''),
             'registration_fee' => trim($_POST['registration_fee'] ?? ''),
+            'is_team_event' => $isTeamEvent,
         ]);
         setFlash('success', 'Tournament updated.');
         header('Location: manage_tournaments.php'); exit;
@@ -322,6 +329,12 @@ require_once __DIR__ . '/../includes/header.php';
                                     <input type="number" name="cat_max_players[]" class="form-control" value="16" min="2" placeholder="e.g. 16">
                                 </div>
                             </div>
+                            <div style="margin-bottom: 12px;">
+                                <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin:0">
+                                    <input type="checkbox" name="cat_is_team_event[]" value="1" class="cat-team-toggle" style="width:16px;height:16px;cursor:pointer" onchange="toggleCategoryTeamEvent(this)">
+                                    <span style="font-size:12px;color:var(--text-400);font-weight:500">This is a team category</span>
+                                </label>
+                            </div>
                             <?php $namePrefix = 'cat_'; $values = []; include __DIR__ . '/../includes/tournament_prize_fields.php'; ?>
                         </div>
 
@@ -378,6 +391,9 @@ require_once __DIR__ . '/../includes/header.php';
                         <input type="text" name="sport_custom" id="etSportCustom" class="form-control" placeholder="e.g. Karate">
                     </div>
                 </div>
+                <div style="margin-bottom: 16px;">
+                    </div>
+                </div>
                 <div class="form-group">
                     <label class="form-label">Description</label>
                     <textarea name="description" id="etDesc" class="form-control" rows="2"></textarea>
@@ -401,6 +417,12 @@ require_once __DIR__ . '/../includes/header.php';
                         <label class="form-label">Custom Category Name *</label>
                         <input type="text" name="category_custom" id="editCustomCategoryInput" class="form-control" placeholder="e.g. Under-15 Boys">
                     </div>
+                </div>
+                <div style="margin-bottom: 16px;">
+                    <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin:0">
+                        <input type="checkbox" name="cat_is_team_event[]" id="etTeamEvent" value="1" class="cat-team-toggle" style="width:16px;height:16px;cursor:pointer" onchange="toggleEditCategoryTeamEvent(this)">
+                        <span style="font-size:12px;color:var(--text-400);font-weight:500">This is a team category</span>
+                    </label>
                 </div>
                 <div class="form-row">
                     <div class="form-group">
@@ -503,6 +525,8 @@ function openEditTournament(t) {
     if (customSportInput) {
         customSportInput.value = sportOptions.includes(sportVal) ? '' : sportVal;
     }
+    document.getElementById('etTeamEvent').checked = !!t.is_team_event;
+    toggleEditCategoryTeamEvent(document.getElementById('etTeamEvent'));
     
     // Handle category drop-down pre-selection
     const categories = ["Men's Singles", "Women's Singles", "Men's Doubles", "Women's Doubles", "Mixed Doubles", "Juniors (Under-18)", "Seniors (40+)", "Open Singles"];
@@ -575,6 +599,12 @@ function addCategoryRow() {
                 <input type="number" name="cat_max_players[]" class="form-control" value="16" min="2" placeholder="e.g. 16">
             </div>
         </div>
+        <div style="margin-bottom: 12px;">
+            <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin:0">
+                <input type="checkbox" name="cat_is_team_event[]" value="1" class="cat-team-toggle" style="width:16px;height:16px;cursor:pointer" onchange="toggleCategoryTeamEvent(this)">
+                <span style="font-size:12px;color:var(--text-400);font-weight:500">This is a team category</span>
+            </label>
+        </div>
         <div class="prize-pool-fields">
             <label class="form-label" style="margin-bottom: 10px;">Prize Pool</label>
             <div class="form-row">
@@ -600,6 +630,7 @@ function addCategoryRow() {
             <div class="form-group" style="margin-top: 14px; margin-bottom: 0;">
                 <label class="form-label">Registration Fee</label>
                 <input type="text" name="cat_registration_fee[]" class="form-control" placeholder="e.g. ₱500 or Free">
+                <span class="form-hint">Amount each player pays to join this tournament (leave blank if none).</span>
             </div>
         </div>
     `;
@@ -685,6 +716,40 @@ function toggleCreateCustomSport(val) {
 function toggleEditCustomSport(val) {
     var group = document.getElementById('editCustomSportGroup');
     if (group) group.style.display = val === 'custom' ? 'block' : 'none';
+}
+
+function toggleCategoryTeamEvent(checkbox) {
+    var block = checkbox.closest('.category-row-block');
+    if (!block) return;
+    var maxInput = block.querySelector('input[name="cat_max_players[]"]');
+    var maxLabel = maxInput ? maxInput.closest('.form-group').querySelector('.form-label') : null;
+    var feeHint = block.querySelector('.form-hint');
+    
+    if (checkbox.checked) {
+        if (maxLabel) maxLabel.textContent = 'Max Teams';
+        if (maxInput) maxInput.placeholder = 'e.g. 8';
+        if (feeHint) feeHint.textContent = 'Amount each team pays to join this tournament (leave blank if none).';
+    } else {
+        if (maxLabel) maxLabel.textContent = 'Max Players';
+        if (maxInput) maxInput.placeholder = 'e.g. 16';
+        if (feeHint) feeHint.textContent = 'Amount each player pays to join this tournament (leave blank if none).';
+    }
+}
+
+function toggleEditCategoryTeamEvent(checkbox) {
+    var modal = checkbox.closest('.modal');
+    if (!modal) return;
+    var maxInput = modal.querySelector('#etMax');
+    var maxLabel = maxInput ? maxInput.closest('.form-group').querySelector('.form-label') : null;
+    var feeHint = modal.querySelector('#etPrizeFields .form-hint');
+    
+    if (checkbox.checked) {
+        if (maxLabel) maxLabel.textContent = 'Max Teams';
+        if (feeHint) feeHint.textContent = 'Amount each team pays to join this tournament (leave blank if none).';
+    } else {
+        if (maxLabel) maxLabel.textContent = 'Max Players';
+        if (feeHint) feeHint.textContent = 'Amount each player pays to join this tournament (leave blank if none).';
+    }
 }
 </script>
 
