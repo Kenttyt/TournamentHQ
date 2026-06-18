@@ -164,11 +164,11 @@ function createTournament(array $data): int {
     $prizes = normalizeTournamentPrizes($data);
     $registrationFee = normalizeRegistrationFee($data);
     $stmt = db()->prepare(
-        "INSERT INTO tournaments (organizer_id, name, category, description, format, status, max_players, start_date, end_date, venue, prize_pool, prize_champion, prize_2nd, prize_3rd, prize_4th, registration_fee)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+        "INSERT INTO tournaments (organizer_id, name, sport, category, description, format, status, max_players, start_date, end_date, venue, prize_pool, prize_champion, prize_2nd, prize_3rd, prize_4th, registration_fee)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
     );
     $stmt->execute([
-        $data['organizer_id'], $data['name'], $data['category'] ?? 'Open Singles', $data['description'],
+        $data['organizer_id'], $data['name'], $data['sport'] ?? 'Table Tennis', $data['category'] ?? 'Open Singles', $data['description'],
         $data['format'], $data['status'] ?? 'upcoming', $data['max_players'],
         $data['start_date'], $data['end_date'] ?: null,
         $data['venue'], $prizes['prize_pool'], $prizes['prize_champion'], $prizes['prize_2nd'], $prizes['prize_3rd'], $prizes['prize_4th'], $registrationFee,
@@ -186,11 +186,11 @@ function updateTournament(int $id, array $data): bool {
     $prizes = normalizeTournamentPrizes($data);
     $registrationFee = normalizeRegistrationFee($data);
     $stmt = db()->prepare(
-        "UPDATE tournaments SET name=?, category=?, description=?, format=?, status=?, max_players=?,
+        "UPDATE tournaments SET name=?, sport=?, category=?, description=?, format=?, status=?, max_players=?,
          start_date=?, end_date=?, venue=?, prize_pool=?, prize_champion=?, prize_2nd=?, prize_3rd=?, prize_4th=?, registration_fee=? WHERE id=?"
     );
     $ok = $stmt->execute([
-        $data['name'], $data['category'] ?? 'Open Singles', $data['description'], $data['format'], $data['status'],
+        $data['name'], $data['sport'] ?? 'Table Tennis', $data['category'] ?? 'Open Singles', $data['description'], $data['format'], $data['status'],
         $data['max_players'], $data['start_date'], $data['end_date'] ?: null,
         $data['venue'], $prizes['prize_pool'], $prizes['prize_champion'], $prizes['prize_2nd'], $prizes['prize_3rd'], $prizes['prize_4th'], $registrationFee, $id
     ]);

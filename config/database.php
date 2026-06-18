@@ -49,6 +49,12 @@ class Database {
             $pdo->exec("ALTER TABLE tournaments ADD COLUMN category VARCHAR(100) DEFAULT 'Open Singles' AFTER name");
         }
 
+        // tournaments.sport
+        try { $pdo->query("SELECT sport FROM tournaments LIMIT 1"); }
+        catch (PDOException $e) {
+            $pdo->exec("ALTER TABLE tournaments ADD COLUMN sport VARCHAR(100) DEFAULT 'Table Tennis' AFTER name");
+        }
+
         // tournament_guests table (full modern schema)
         try { $pdo->query("SELECT id FROM tournament_guests LIMIT 1"); }
         catch (PDOException $e) {

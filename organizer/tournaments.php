@@ -17,6 +17,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($action === 'create') {
         $baseName    = trim($_POST['name'] ?? '');
         $description = trim($_POST['description'] ?? '');
+        $sport       = trim($_POST['sport'] ?? '');
+        $sportCustom = trim($_POST['sport_custom'] ?? '');
+        if (empty($sport) || $sport === 'custom') {
+            $sport = $sportCustom ?: 'Table Tennis';
+        }
         
         $startDate   = $_POST['start_date'] ?? '';
         $endDate     = $_POST['end_date'] ?? '';
@@ -39,6 +44,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             createTournament([
                 'organizer_id'   => $userId,
                 'name'           => $baseName . ' (' . $catName . ')',
+                'sport'          => $sport,
                 'category'       => $catName,
                 'description'    => $description,
                 'format'         => 'single_elimination',
@@ -60,6 +66,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             createTournament([
                 'organizer_id' => $userId,
                 'name'         => $baseName . ' (Open Singles)',
+                'sport'        => $sport,
                 'category'     => 'Open Singles',
                 'description'  => $description,
                 'format'       => 'single_elimination',
@@ -89,8 +96,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 if (empty($category)) {
                     $category = 'Open Singles';
                 }
+                $sport = trim($_POST['sport'] ?? '');
+                $sportCustom = trim($_POST['sport_custom'] ?? '');
+                if (empty($sport) || $sport === 'custom') {
+                    $sport = $sportCustom ?: 'Table Tennis';
+                }
                 updateTournament($id, [
                     'name'        => trim($_POST['name'] ?? $existing['name']),
+                    'sport'       => $sport,
                     'category'    => $category,
                     'description' => trim($_POST['description'] ?? $existing['description']),
                     'format'      => $existing['format'],
@@ -290,6 +303,9 @@ function renderTournamentCard(array $t, int $userId): void {
             <div style="flex:1">
                 <div class="tournament-name"><?= e($t['name']) ?></div>
                 <div style="margin-top: 4px; display: flex; gap: 6px; flex-wrap: wrap;">
+                    <span style="background: rgba(139, 92, 246, 0.12); border: 1px solid rgba(139, 92, 246, 0.25); padding: 2px 8px; border-radius: 20px; color: var(--primary-light); font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.3px;">
+                        <?= e($t['sport'] ?? 'Table Tennis') ?>
+                    </span>
                     <span style="background: rgba(0, 212, 170, 0.12); border: 1px solid rgba(0, 212, 170, 0.25); padding: 2px 8px; border-radius: 20px; color: var(--accent); font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.3px;">
                         <?= e($t['category'] ?? 'Open Singles') ?>
                     </span>
@@ -544,9 +560,31 @@ require_once __DIR__ . '/../includes/header.php';
         <form method="POST">
             <input type="hidden" name="action" value="create">
             <div class="modal-body">
-                <div class="form-group">
-                    <label class="form-label">Tournament Name *</label>
-                    <input type="text" name="name" class="form-control" required placeholder="Tournament name">
+                <div class="form-row">
+                    <div class="form-group" style="flex:2">
+                        <label class="form-label">Tournament Name *</label>
+                        <input type="text" name="name" class="form-control" required placeholder="Tournament name">
+                    </div>
+                    <div class="form-group" style="flex:1">
+                        <label class="form-label">Sport *</label>
+                        <select name="sport" id="createSport" class="form-select" onchange="toggleCreateCustomSport(this.value)" required style="height: 44px; background: var(--bg-600); border: 1px solid var(--border); color: var(--text-100);">
+                            <option value="Table Tennis">Table Tennis</option>
+                            <option value="Badminton">Badminton</option>
+                            <option value="Chess">Chess</option>
+                            <option value="Basketball">Basketball</option>
+                            <option value="Volleyball">Volleyball</option>
+                            <option value="Football">Football</option>
+                            <option value="Tennis">Tennis</option>
+                            <option value="Boxing">Boxing</option>
+                            <option value="MMA">MMA</option>
+                            <option value="Esports">Esports</option>
+                            <option value="custom">Custom...</option>
+                        </select>
+                    </div>
+                    <div class="form-group" id="createCustomSportGroup" style="flex:1; display: none;">
+                        <label class="form-label">Custom Sport *</label>
+                        <input type="text" name="sport_custom" class="form-control" placeholder="e.g. Karate">
+                    </div>
                 </div>
                 <div class="form-group">
                     <label class="form-label">Description</label>
@@ -654,6 +692,28 @@ require_once __DIR__ . '/../includes/header.php';
                 <div class="form-group">
                     <label class="form-label">Tournament Name *</label>
                     <input type="text" name="name" id="etName" class="form-control" required>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Sport *</label>
+                        <select name="sport" id="etSport" class="form-select" onchange="toggleEditCustomSport(this.value)" required style="height: 44px; background: var(--bg-600); border: 1px solid var(--border); color: var(--text-100);">
+                            <option value="Table Tennis">Table Tennis</option>
+                            <option value="Badminton">Badminton</option>
+                            <option value="Chess">Chess</option>
+                            <option value="Basketball">Basketball</option>
+                            <option value="Volleyball">Volleyball</option>
+                            <option value="Football">Football</option>
+                            <option value="Tennis">Tennis</option>
+                            <option value="Boxing">Boxing</option>
+                            <option value="MMA">MMA</option>
+                            <option value="Esports">Esports</option>
+                            <option value="custom">Custom...</option>
+                        </select>
+                    </div>
+                    <div class="form-group" id="editCustomSportGroup" style="display: none;">
+                        <label class="form-label">Custom Sport *</label>
+                        <input type="text" name="sport_custom" id="etSportCustom" class="form-control" placeholder="e.g. Karate">
+                    </div>
                 </div>
                 <div class="form-group">
                     <label class="form-label">Description</label>
@@ -891,6 +951,20 @@ function openEditTournament(t) {
     document.getElementById('etDesc').value   = t.description || '';
     document.getElementById('etCategory').value = t.category || '';
 
+    var sportVal = t.sport || 'Table Tennis';
+    var sportSelect = document.getElementById('etSport');
+    var sportOptions = Array.from(sportSelect.options).map(function(o) { return o.value; });
+    if (sportOptions.includes(sportVal)) {
+        sportSelect.value = sportVal;
+    } else {
+        sportSelect.value = 'custom';
+    }
+    toggleEditCustomSport(sportSelect.value);
+    var customInput = document.getElementById('etSportCustom');
+    if (customInput) {
+        customInput.value = sportOptions.includes(sportVal) ? '' : sportVal;
+    }
+
     document.getElementById('etStart').value  = t.start_date;
     document.getElementById('etEnd').value    = t.end_date || '';
     document.getElementById('etMax').value    = t.max_players;
@@ -953,4 +1027,14 @@ document.querySelectorAll('.js-org-register-player').forEach(function (btn) {
         );
     });
 });
+
+function toggleCreateCustomSport(val) {
+    var group = document.getElementById('createCustomSportGroup');
+    if (group) group.style.display = val === 'custom' ? 'block' : 'none';
+}
+
+function toggleEditCustomSport(val) {
+    var group = document.getElementById('editCustomSportGroup');
+    if (group) group.style.display = val === 'custom' ? 'block' : 'none';
+}
 </script>

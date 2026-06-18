@@ -329,6 +329,7 @@ try {
                         <span class="tournament-card-name"><?= e($t['name']) ?></span>
                         <span class="tournament-badge badge-<?= $t['status'] ?>"><?= e($t['status']) ?></span>
                     </div>
+                    <span class="tournament-badge badge-category"><?= e($t['sport'] ?? 'Table Tennis') ?></span>
                     <span class="tournament-badge badge-category"><?= e($t['category']) ?></span>
                     <div class="tournament-card-meta">
                         <span><i data-lucide="calendar"></i> <?= date('M j, Y', strtotime($t['start_date'])) ?></span>

@@ -114,7 +114,7 @@ require_once __DIR__ . '/../includes/header.php';
                 <tbody>
                 <?php foreach ($upcomingT as $t): ?>
                 <tr>
-                    <td><strong><?= e($t['name']) ?></strong><div class="text-xs text-muted"><?= e($t['category']) ?></div></td>
+                    <td><strong><?= e($t['name']) ?></strong><div class="text-xs text-muted"><?= e($t['sport'] ?? 'Table Tennis') ?> · <?= e($t['category']) ?></div></td>
                     <td class="text-muted text-sm"><?= date('M j, Y', strtotime($t['start_date'])) ?></td>
                     <td class="text-sm font-semibold"><?= $t['registered_count'] ?> / <?= $t['max_players'] ?></td>
                 </tr>

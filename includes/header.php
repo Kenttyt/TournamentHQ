@@ -54,6 +54,7 @@ if ($role === 'admin') {
         ['href' => '/TournamentHQ/organizer/bracket_generator.php', 'icon' => 'git-branch', 'label' => 'Auto Bracket'],
         ['href' => '/TournamentHQ/organizer/players.php',     'icon' => 'users',  'label' => 'Players'],
         ['href' => '/TournamentHQ/organizer/notifications.php', 'icon' => 'bell', 'label' => 'Notifications', 'badge' => $notificationCount],
+        ['href' => '/TournamentHQ/organizer/profile.php', 'icon' => 'user', 'label' => 'Profile'],
     ];
 } elseif ($role === 'player') {
     $navLinks = [
@@ -111,7 +112,7 @@ $currentPage = basename($_SERVER['PHP_SELF']);
 
     <div class="sidebar-footer">
         <div class="user-info">
-            <a href="/TournamentHQ/player/profile.php" class="user-avatar-link" title="View profile">
+            <a href="/TournamentHQ/<?= ($role === 'player' ? 'player/profile.php' : ($role === 'organizer' ? 'organizer/profile.php' : 'admin/index.php')) ?>" class="user-avatar-link" title="View profile">
                 <div class="user-avatar"><?= strtoupper(substr($user['username'], 0, 1)) ?></div>
             </a>
             <div class="user-details">

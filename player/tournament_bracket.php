@@ -36,6 +36,9 @@ require_once __DIR__ . '/../includes/header.php';
     <div class="card-body" style="padding: 24px;">
         <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap;">
             <div>
+                <span style="background: rgba(139, 92, 246, 0.12); border: 1px solid rgba(139, 92, 246, 0.25); padding: 3px 10px; border-radius: 20px; color: var(--primary-light); font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; display: inline-block; margin-bottom: 10px; margin-right: 6px;">
+                    <?= e($tournament['sport'] ?? 'Table Tennis') ?>
+                </span>
                 <span style="background: rgba(0, 212, 170, 0.12); border: 1px solid rgba(0, 212, 170, 0.25); padding: 3px 10px; border-radius: 20px; color: var(--accent); font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; display: inline-block; margin-bottom: 10px;">
                     <?= e($tournament['category'] ?? 'Open Singles') ?>
                 </span>

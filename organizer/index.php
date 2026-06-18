@@ -14,6 +14,10 @@ $myTournaments = getOrganizerTournaments($userId);
 $approvalHistory = getApprovedRegistrationHistory();
 $recentResults   = getRecentMatches();
 
+$userStmt = db()->prepare("SELECT username, email, role, created_at FROM users WHERE id = ?");
+$userStmt->execute([$userId]);
+$userInfo = $userStmt->fetch();
+
 $totalTourneys  = count($myTournaments);
 $activeTourneys = count(array_filter($myTournaments, fn($t) => $t['status'] === 'ongoing'));
 $completedT     = count(array_filter($myTournaments, fn($t) => $t['status'] === 'completed'));

@@ -236,7 +236,10 @@ require_once __DIR__ . '/../includes/header.php';
                                     <?php endif; ?>
                                 </td>
                                 <td>
-                                    <span style="background: rgba(0, 212, 170, 0.12); border: 1px solid rgba(0, 212, 170, 0.25); padding: 2px 8px; border-radius: 20px; color: var(--accent); font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.3px;">
+                                    <span style="background: rgba(139, 92, 246, 0.12); border: 1px solid rgba(139, 92, 246, 0.25); padding: 2px 8px; border-radius: 20px; color: var(--primary-light); font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.3px;">
+                                        <?= e($t['sport'] ?? 'Table Tennis') ?>
+                                    </span>
+                                    <span style="background: rgba(0, 212, 170, 0.12); border: 1px solid rgba(0, 212, 170, 0.25); padding: 2px 8px; border-radius: 20px; color: var(--accent); font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.3px; margin-left: 4px;">
                                         <?= e($t['category'] ?? 'Open Singles') ?>
                                     </span>
                                 </td>
@@ -362,6 +365,9 @@ require_once __DIR__ . '/../includes/header.php';
                 <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:10px">
                     <div>
                         <strong style="color:var(--text-100)"><?= e($t['name']) ?></strong>
+                        <?php if (!empty($t['sport'])): ?>
+                        <span class="text-muted text-xs"> · <?= e($t['sport']) ?></span>
+                        <?php endif; ?>
                         <?php if (!empty($t['category'])): ?>
                         <span class="text-muted text-xs"> · <?= e($t['category']) ?></span>
                         <?php endif; ?>
@@ -458,13 +464,6 @@ require_once __DIR__ . '/../includes/header.php';
 
                 <div id="joinTDescriptionWrapper" style="display:none;margin-bottom:14px;padding:12px;border-radius:var(--radius-sm);background:rgba(0,212,170,0.06);border:1px solid rgba(0,212,170,0.18);">
                     <div id="joinTDescription" style="margin:0;font-size:13px;color:var(--text-200);line-height:1.4"></div>
-                </div>
-
-                <div style="background: rgba(255, 200, 87, 0.08); border: 1px solid rgba(255, 200, 87, 0.25); border-radius: var(--radius-sm); padding: 12px 14px; margin-bottom: 18px;">
-                    <p style="margin: 0; font-size: 12px; font-weight: 700; color: var(--warning);">Your profile is not included</p>
-                    <p style="margin: 6px 0 0 0; font-size: 11px; color: var(--text-400); line-height: 1.45;">
-                        Only the players you add below are registered for this tournament. Your account (<span id="joinSubmitterName" style="color: var(--text-300); font-weight: 600;"></span>) is only used to submit the request and will not compete.
-                    </p>
                 </div>
 
                 <div>
