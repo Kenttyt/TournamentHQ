@@ -3,6 +3,7 @@
 /** @var int $tid */
 /** @var string $recordResultUrl */
 
+global $bracketIsTeamEvent;
 if (!isset($bracketEntrantLabel)) {
     $bracketIsTeamEvent = false;
     if (!empty($tid) && isset($tournament) && !empty($tournament)) {
@@ -60,6 +61,7 @@ if (empty($bracketGroups)): ?>
             global $koMatchNumber;
             global $participantSeeds;
             global $bracketEntrantLabel;
+            global $bracketIsTeamEvent;
             $isGroupRound = preg_match('/^Group [A-Z]/i', $group['label']);
             
             // Calculate standings dynamically for this group
@@ -145,7 +147,7 @@ if (empty($bracketGroups)): ?>
                                     <th style="text-align: center; width: 20px;">P</th>
                                     <th style="text-align: center; width: 20px;">W</th>
                                     <th style="text-align: center; width: 20px;">L</th>
-                                    <th style="text-align: center; width: 36px;">Sets</th>
+                                    <th style="text-align: center; width: 36px;"><?= !empty($bracketIsTeamEvent) ? 'Games' : 'Sets' ?></th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -276,7 +278,7 @@ if (empty($bracketGroups)): ?>
                             <?php endif; ?>
                         </div>
                         <?php if ($m['status'] === 'completed' && !empty($m['set_scores'])): ?>
-                            <div style="padding: 4px 12px; font-size: 10px; color: var(--text-400); border-top: 1px solid rgba(255,255,255,0.03); background: rgba(0,0,0,0.1); line-height: 1.4;">
+                            <div style="padding: 4px 12px; font-size: 10px; color: var(--text-400); border-top: 1px solid rgba(255,255,255,0.03); background: rgba(0,0,0,0.1); line-height: 1.6; overflow: visible;">
                                 <?php 
                                 if (strpos($m['set_scores'], '|') !== false) {
                                     $games = explode(',', $m['set_scores']);
@@ -296,9 +298,9 @@ if (empty($bracketGroups)): ?>
                                             $gameNum++;
                                             continue;
                                         }
-                                        if (!empty($score)) {
-                                            $renderedGames[] = "G{$gameNum}: {$gameP1Name} vs {$gameP2Name} ({$score})";
-                                        }
+                                        $renderedGames[] = !empty($score)
+                                            ? "G{$gameNum}: {$gameP1Name} vs {$gameP2Name} ({$score})"
+                                            : "G{$gameNum}: {$gameP1Name} vs {$gameP2Name} (—)";
                                         $gameNum++;
                                     }
                                     echo implode('<br>', array_map('e', $renderedGames));

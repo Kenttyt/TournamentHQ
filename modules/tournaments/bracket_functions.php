@@ -59,7 +59,7 @@ function distributeRemainderIntoGroups(array $groups, int $groupSize): array {
 
     // Distribute remainder players one-by-one to existing groups
     // This creates more even distribution: 4-4-3 instead of 5-3-3
-    $groupIdx = 0;
+    $groupIdx = mt_rand(0, count($groups) - 1);
     foreach ($remainder as $entrant) {
         $groups[$groupIdx][] = $entrant;
         $merged[] = [

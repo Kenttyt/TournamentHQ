@@ -606,8 +606,8 @@ function calculateSetsFromSetInputs() {
         if (!p1Input || !p2Input) continue;
 
         if (window.BRACKET_IS_TEAM_EVENT) {
-            const gameBlock = p1Input.closest('.team-game-block');
-            const gameType = gameBlock ? gameBlock.querySelector('.js-game-type').value : 'Singles';
+            const gameBlock = p1Input.closest('.game-row');
+            const gameType = gameBlock ? (gameBlock.querySelector('.js-game-type')?.value || 'Singles') : 'Singles';
             const p1NameInput = document.querySelector(`.js-game-p1name[data-set="${s}"]`);
             const p2NameInput = document.querySelector(`.js-game-p2name[data-set="${s}"]`);
             const p1name = p1NameInput ? p1NameInput.value.trim() : '';
@@ -830,34 +830,13 @@ document.querySelectorAll('.js-bracket-result-btn').forEach(function (btn) {
 });
 
 document.querySelector('#bracketResultModal form')?.addEventListener('submit', function (e) {
+    e.preventDefault();
     const sel = document.getElementById('bracketWinnerSelect');
     document.getElementById('bracketWinnerKey').value = sel.value;
     if (!sel.value) {
-        e.preventDefault();
         alert('Please select the winner.');
+        return;
     }
-});
-</script>
-        let text = total + ' <?= $entrantLabelPlural ?> → about ' + groups + ' group(s)';
-        if (extra !== 0) {
-            text += ' (extra <?= $entrantLabel ?> goes to a random group)';
-        }
-        hint.textContent = text;
-    });
-})();
-
-document.querySelectorAll('.js-bracket-result-btn').forEach(function (btn) {
-    btn.addEventListener('click', function () {
-        openBracketResultModal(btn);
-    });
-});
-
-document.querySelector('#bracketResultModal form')?.addEventListener('submit', function (e) {
-    const sel = document.getElementById('bracketWinnerSelect');
-    document.getElementById('bracketWinnerKey').value = sel.value;
-    if (!sel.value) {
-        e.preventDefault();
-        alert('Please select the winner.');
-    }
+    e.target.submit();
 });
 </script>
