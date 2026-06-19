@@ -331,6 +331,9 @@ function knockoutRoundName(int $matchCount): string {
     if ($matchCount === 2) return 'Semifinal';
     if ($matchCount === 4) return 'Quarterfinal';
     if ($matchCount === 8) return 'Round of 16';
+    if ($matchCount === 16) return 'Round of 32';
+    if ($matchCount === 32) return 'Round of 64';
+    if ($matchCount === 64) return 'Round of 128';
     return 'Knockout Round';
 }
 
@@ -349,9 +352,7 @@ function generateKnockoutStage(int $tournamentId, string $bracketType, bool $inc
     // Delete any existing knockout matches (round > 1)
     db()->prepare("DELETE FROM matches WHERE tournament_id = ? AND round > 1")->execute([$tournamentId]);
     
-    // Build the seeded list: rank 1 qualifiers first (stronger seeds), then rank 2 qualifiers
-    // This ensures rank 1 players get the top seeds and rank 2 players get lower seeds.
-    // With standard bracket seeding, rank 1 players will never face each other in the first round.
+    // Separate rank 1 and rank 2 qualifiers
     $rank1s = [];
     $rank2s = [];
     for ($i = 0; $i < $count; $i++) {
@@ -361,32 +362,35 @@ function generateKnockoutStage(int $tournamentId, string $bracketType, bool $inc
             $rank2s[] = $qualifiers[$i];
         }
     }
-    $seeded = array_merge($rank1s, $rank2s);
     
     // Pad to next power of 2 with null entries (byes)
     $bracketSize = 1;
-    while ($bracketSize < count($seeded)) {
+    while ($bracketSize < $count) {
         $bracketSize *= 2;
     }
-    while (count($seeded) < $bracketSize) {
-        $seeded[] = null; // bye slot
-    }
-
     
-    // Get standard bracket seeding order
+    // Build bracket pairs directly from seeding order so that each first-round
+    // match pairs a rank 1 (favored) against a rank 2 (underdog), never same rank.
     $seedOrder = standardBracketSeeding($bracketSize);
-
-    
-    // Place players into bracket slots using seeding order
-    $slots = [];
-    foreach ($seedOrder as $seedNum) {
-        $slots[] = $seeded[$seedNum - 1] ?? null; // seedNum is 1-indexed
-    }
-    
-    // Create first-round match pairs from adjacent slots
     $pairs = [];
-    for ($i = 0; $i < count($slots); $i += 2) {
-        $pairs[] = [$slots[$i], $slots[$i + 1]];
+    $r1Idx = 0;
+    $r2Idx = 0;
+    
+    for ($i = 0; $i < count($seedOrder); $i += 2) {
+        $favoredSlot   = $seedOrder[$i] - 1;
+        $underdogSlot  = $seedOrder[$i + 1] - 1;
+        
+        $e1 = null;
+        $e2 = null;
+        
+        if ($r1Idx < count($rank1s)) {
+            $e1 = $rank1s[$r1Idx++];
+        }
+        if ($r2Idx < count($rank2s)) {
+            $e2 = $rank2s[$r2Idx++];
+        }
+        
+        $pairs[] = [$e1, $e2];
     }
     
     $tableNum = 1;
