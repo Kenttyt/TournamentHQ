@@ -589,16 +589,9 @@ require_once __DIR__ . '/../includes/header.php';
                         <label class="form-label">Sport *</label>
                         <select name="sport" id="createSport" class="form-select" onchange="toggleCreateCustomSport(this.value)" required style="height: 44px; background: var(--bg-600); border: 1px solid var(--border); color: var(--text-100);">
                             <option value="Table Tennis">Table Tennis</option>
+                            <option value="Lawn Tennis">Lawn Tennis</option>
                             <option value="Badminton">Badminton</option>
-                            <option value="Chess">Chess</option>
-                            <option value="Basketball">Basketball</option>
-                            <option value="Volleyball">Volleyball</option>
-                            <option value="Football">Football</option>
-                            <option value="Tennis">Tennis</option>
-                            <option value="Boxing">Boxing</option>
-                            <option value="MMA">MMA</option>
-                            <option value="Esports">Esports</option>
-                            <option value="custom">Custom...</option>
+                            <option value="Pickleball">Pickleball</option>
                         </select>
                     </div>
                     <div class="form-group" id="createCustomSportGroup" style="flex:1; display: none;">
@@ -724,16 +717,9 @@ require_once __DIR__ . '/../includes/header.php';
                         <label class="form-label">Sport *</label>
                         <select name="sport" id="etSport" class="form-select" onchange="toggleEditCustomSport(this.value)" required style="height: 44px; background: var(--bg-600); border: 1px solid var(--border); color: var(--text-100);">
                             <option value="Table Tennis">Table Tennis</option>
+                            <option value="Lawn Tennis">Lawn Tennis</option>
                             <option value="Badminton">Badminton</option>
-                            <option value="Chess">Chess</option>
-                            <option value="Basketball">Basketball</option>
-                            <option value="Volleyball">Volleyball</option>
-                            <option value="Football">Football</option>
-                            <option value="Tennis">Tennis</option>
-                            <option value="Boxing">Boxing</option>
-                            <option value="MMA">MMA</option>
-                            <option value="Esports">Esports</option>
-                            <option value="custom">Custom...</option>
+                            <option value="Pickleball">Pickleball</option>
                         </select>
                     </div>
                     <div class="form-group" id="editCustomSportGroup" style="display: none;">
