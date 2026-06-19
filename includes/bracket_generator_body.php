@@ -527,35 +527,37 @@ if (!empty($bracketGroups)) {
                         <option value="">— Select winner —</option>
                     </select>
                 </div>
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
-                    <div class="form-group">
-                        <label class="form-label" id="bracketP1Label"><?= ucfirst($entrantLabel) ?> 1 <?= !empty($tournament['is_team_event']) ? 'games won' : 'sets' ?></label>
-                        <input type="number" name="player1_score" class="form-control" min="0" value="0" required readonly style="background-color: var(--background-alt); cursor: not-allowed;" title="<?= !empty($tournament['is_team_event']) ? 'Games won' : 'Sets won' ?>">
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label" id="bracketP2Label"><?= ucfirst($entrantLabel) ?> 2 <?= !empty($tournament['is_team_event']) ? 'games won' : 'sets' ?></label>
-                        <input type="number" name="player2_score" class="form-control" min="0" value="0" required readonly style="background-color: var(--background-alt); cursor: not-allowed;" title="<?= !empty($tournament['is_team_event']) ? 'Games won' : 'Sets won' ?>">
-                    </div>
-                </div>
+                <input type="hidden" name="player1_score" id="bracketP1Score" value="0">
+                <input type="hidden" name="player2_score" id="bracketP2Score" value="0">
                 <div class="form-group" style="margin-top: 16px; border-top: 1px solid var(--border); padding-top: 16px;">
                     <?php if (!empty($tournament['is_team_event'])): ?>
-                    <label class="form-label" style="font-weight: 600; margin-bottom: 4px;">Game Results</label>
-                    <p style="font-size: 11px; color: var(--text-400); margin: 0 0 12px;">Enter the player names and sets won for each individual game. Games won tally automatically.</p>
-                    <div style="display: grid; grid-template-columns: 50px 1fr 1fr 42px 42px; gap: 8px; align-items: center; margin-bottom: 4px; padding: 0 2px;">
+                    <label class="form-label" style="font-weight: 600; margin-bottom: 8px;">Game Results</label>
+                    <div style="display: grid; grid-template-columns: 60px 1fr 1fr; gap: 10px; align-items: center; margin-bottom: 4px; padding: 0 2px;">
                         <span></span>
-                        <span id="bracketSetP1Header" style="font-size: 10px; font-weight: 700; color: var(--text-300); text-transform: uppercase; letter-spacing: 0.5px; text-align: center;">Team 1 Player</span>
-                        <span id="bracketSetP2Header" style="font-size: 10px; font-weight: 700; color: var(--text-300); text-transform: uppercase; letter-spacing: 0.5px; text-align: center;">Team 2 Player</span>
-                        <span style="font-size: 10px; font-weight: 700; color: var(--success); text-align: center;">Sets<br>Won</span>
-                        <span style="font-size: 10px; font-weight: 700; color: var(--success); text-align: center;">Sets<br>Won</span>
+                        <span id="bracketSetP1Header" style="font-size: 11px; font-weight: 700; color: var(--accent); text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; letter-spacing: 0.3px;">Team 1</span>
+                        <span id="bracketSetP2Header" style="font-size: 11px; font-weight: 700; color: var(--accent); text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; letter-spacing: 0.3px;">Team 2</span>
                     </div>
-                    <div style="display: flex; flex-direction: column; gap: 5px;" id="setScoresContainer">
+                    <div style="display: flex; flex-direction: column; gap: 8px;" id="setScoresContainer">
                         <?php for ($s = 1; $s <= 5; $s++): ?>
-                            <div style="display: grid; grid-template-columns: 50px 1fr 1fr 42px 42px; gap: 8px; align-items: center; background: rgba(255,255,255,0.025); border: 1px solid rgba(255,255,255,0.05); border-radius: var(--radius-sm); padding: 6px 4px;" class="game-row">
-                                <span style="font-size: 11px; font-weight: 700; color: var(--accent); text-align: center; letter-spacing: 0.3px;">G<?= $s ?></span>
-                                <input type="text" class="form-control js-game-p1name" data-set="<?= $s ?>" placeholder="Player name" style="padding: 5px 8px; font-size: 11px; height: 32px;">
-                                <input type="text" class="form-control js-game-p2name" data-set="<?= $s ?>" placeholder="Player name" style="padding: 5px 8px; font-size: 11px; height: 32px;">
-                                <input type="number" class="form-control js-set-p1" data-set="<?= $s ?>" placeholder="0" min="0" style="padding: 4px 4px; font-size: 13px; font-weight: 700; text-align: center; height: 32px;">
-                                <input type="number" class="form-control js-set-p2" data-set="<?= $s ?>" placeholder="0" min="0" style="padding: 4px 4px; font-size: 13px; font-weight: 700; text-align: center; height: 32px;">
+                            <div style="background: rgba(255,255,255,0.025); border: 1px solid rgba(255,255,255,0.06); border-radius: var(--radius-sm); padding: 10px 12px;" class="game-row">
+                                <!-- Player name row -->
+                                <div style="display: grid; grid-template-columns: 60px 1fr 1fr; gap: 10px; align-items: center; margin-bottom: 6px;">
+                                    <span style="font-size: 12px; font-weight: 700; color: var(--accent); letter-spacing: 0.3px;">Game <?= $s ?></span>
+                                    <input type="text" class="form-control js-game-p1name" data-set="<?= $s ?>" placeholder="Type Player Name" style="padding: 5px 8px; font-size: 11px; height: 32px;">
+                                    <input type="text" class="form-control js-game-p2name" data-set="<?= $s ?>" placeholder="Type Player Name" style="padding: 5px 8px; font-size: 11px; height: 32px;">
+                                </div>
+                                <!-- Sets row -->
+                                <div style="display: grid; grid-template-columns: 60px 1fr 1fr; gap: 10px; align-items: center;">
+                                    <span></span>
+                                    <div style="display: flex; align-items: center; gap: 6px;">
+                                        <input type="number" class="form-control js-set-p1" data-set="<?= $s ?>" placeholder="0" min="0" style="padding: 4px 6px; font-size: 15px; font-weight: 700; text-align: center; height: 36px; width: 60px; flex-shrink: 0;">
+                                        <span style="font-size: 11px; color: var(--text-400); white-space: nowrap;">sets</span>
+                                    </div>
+                                    <div style="display: flex; align-items: center; gap: 6px;">
+                                        <input type="number" class="form-control js-set-p2" data-set="<?= $s ?>" placeholder="0" min="0" style="padding: 4px 6px; font-size: 15px; font-weight: 700; text-align: center; height: 36px; width: 60px; flex-shrink: 0;">
+                                        <span style="font-size: 11px; color: var(--text-400); white-space: nowrap;">sets</span>
+                                    </div>
+                                </div>
                             </div>
                         <?php endfor; ?>
                     </div>
@@ -587,108 +589,11 @@ if (!empty($bracketGroups)) {
     </div>
 </div>
 
-<!-- Record result modal -->
-<div class="modal-overlay" id="bracketResultModal">
-    <div class="modal" style="max-width: <?= !empty($tournament['is_team_event']) ? '640px' : '420px' ?>;">
-        <div class="modal-header">
-            <div class="modal-title" id="bracketModalTitle">Record Match Result</div>
-            <button type="button" class="modal-close" data-modal-close>×</button>
-        </div>
-        <form method="POST" action="<?= e($formAction) ?>">
-            <input type="hidden" name="action" value="result">
-            <input type="hidden" name="tournament_id" value="<?= $tid ?>">
-            <input type="hidden" name="match_id" id="bracketMatchId">
-            <input type="hidden" name="winner_key" id="bracketWinnerKey">
-            <div class="modal-body">
-                <p id="bracketMatchLabel" style="font-weight: 600; margin-bottom: 16px;"></p>
-                <?php if (!empty($tournament['is_team_event'])): ?>
-                <div style="display: none;">
-                    <input type="number" name="player1_score" class="form-control" min="0" value="0" id="bracketP1Score">
-                    <input type="number" name="player2_score" class="form-control" min="0" value="0" id="bracketP2Score">
-                </div>
-                <div class="form-group" style="margin-bottom: 16px;">
-                    <label class="form-label" style="font-weight: 600; margin-bottom: 8px;">Match Winner</label>
-                    <select id="bracketWinnerSelect" class="form-select" required>
-                        <option value="">— Select winning team —</option>
-                    </select>
-                </div>
-                <div style="border-top: 1px solid var(--border); padding-top: 16px;">
-                    <label class="form-label" style="font-weight: 600; margin-bottom: 12px;">Game Results</label>
-                    <p style="font-size: 11px; color: var(--text-400); margin: 0 0 14px;">Enter the player names and sets won for each game. Games won tally automatically.</p>
-                    <div id="teamGameResults" style="display: flex; flex-direction: column; gap: 14px;">
-                        <?php for ($s = 1; $s <= 5; $s++): ?>
-                        <div class="team-game-block" data-game="<?= $s ?>" style="border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 12px; background: rgba(255,255,255,0.015);">
-                            <div style="font-size: 12px; font-weight: 700; color: var(--accent); margin-bottom: 10px; letter-spacing: 0.3px;">
-                                G<?= $s ?>: <select class="js-game-type" data-set="<?= $s ?>" style="background: transparent; border: none; color: var(--accent); font-weight: 700; font-size: 12px; cursor: pointer; outline: none; padding: 0;">
-                                    <option value="Singles">Singles</option>
-                                    <option value="Doubles">Doubles</option>
-                                    <option value="Mixed Doubles">Mixed Doubles</option>
-                                </select>
-                            </div>
-                            <div style="display: flex; flex-direction: column; gap: 6px;">
-                                <div style="display: grid; grid-template-columns: auto 1fr auto; gap: 8px; align-items: center;">
-                                    <span class="js-team1-label" style="font-size: 11px; font-weight: 600; color: var(--text-200); min-width: 60px;"></span>
-                                    <input type="text" class="form-control js-game-p1name" data-set="<?= $s ?>" placeholder="Type player name..." style="padding: 5px 8px; font-size: 11px; height: 30px;">
-                                    <input type="number" class="form-control js-set-p1" data-set="<?= $s ?>" placeholder="0" min="0" style="padding: 4px; font-size: 12px; font-weight: 700; text-align: center; height: 30px; width: 50px;">
-                                </div>
-                                <div style="display: grid; grid-template-columns: auto 1fr auto; gap: 8px; align-items: center;">
-                                    <span class="js-team2-label" style="font-size: 11px; font-weight: 600; color: var(--text-200); min-width: 60px;"></span>
-                                    <input type="text" class="form-control js-game-p2name" data-set="<?= $s ?>" placeholder="Type player name..." style="padding: 5px 8px; font-size: 11px; height: 30px;">
-                                    <input type="number" class="form-control js-set-p2" data-set="<?= $s ?>" placeholder="0" min="0" style="padding: 4px; font-size: 12px; font-weight: 700; text-align: center; height: 30px; width: 50px;">
-                                </div>
-                            </div>
-                        </div>
-                        <?php endfor; ?>
-                    </div>
-                </div>
-                <?php else: ?>
-                <div class="form-group">
-                    <label class="form-label">Winner</label>
-                    <select id="bracketWinnerSelect" class="form-select" required>
-                        <option value="">— Select winner —</option>
-                    </select>
-                </div>
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
-                    <div class="form-group">
-                        <label class="form-label" id="bracketP1Label"><?= ucfirst($entrantLabel) ?> 1 sets</label>
-                        <input type="number" name="player1_score" class="form-control" min="0" value="0" required readonly style="background-color: var(--background-alt); cursor: not-allowed;" title="Sets won">
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label" id="bracketP2Label"><?= ucfirst($entrantLabel) ?> 2 sets</label>
-                        <input type="number" name="player2_score" class="form-control" min="0" value="0" required readonly style="background-color: var(--background-alt); cursor: not-allowed;" title="Sets won">
-                    </div>
-                </div>
-                <div class="form-group" style="margin-top: 16px; border-top: 1px solid var(--border); padding-top: 16px;">
-                    <label class="form-label" style="font-weight: 600; margin-bottom: 8px;">Set Scores (Points)</label>
-                    <div style="display: grid; grid-template-columns: 60px 1fr 1fr; gap: 12px; align-items: center; margin-bottom: 8px; text-align: center;">
-                        <span></span>
-                        <span id="bracketSetP1Header" style="font-size: 11px; font-weight: 700; color: var(--text-200); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 0 4px;"><?= ucfirst($entrantLabel) ?> 1</span>
-                        <span id="bracketSetP2Header" style="font-size: 11px; font-weight: 700; color: var(--text-200); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 0 4px;"><?= ucfirst($entrantLabel) ?> 2</span>
-                    </div>
-                    <div style="display: flex; flex-direction: column; gap: 8px;" id="setScoresContainer">
-                        <?php for ($s = 1; $s <= 5; $s++): ?>
-                            <div style="display: grid; grid-template-columns: 60px 1fr 1fr; gap: 12px; align-items: center;">
-                                <span style="font-size: 11px; font-weight: 600; color: var(--text-300);">Set <?= $s ?></span>
-                                <input type="number" class="form-control js-set-p1" data-set="<?= $s ?>" placeholder="0" min="0" style="padding: 4px 8px; font-size: 12px;">
-                                <input type="number" class="form-control js-set-p2" data-set="<?= $s ?>" placeholder="0" min="0" style="padding: 4px 8px; font-size: 12px;">
-                            </div>
-                        <?php endfor; ?>
-                    </div>
-                </div>
-                <?php endif; ?>
-                    <input type="hidden" name="set_scores" id="bracketSetScoresInput">
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-outline" data-modal-close>Cancel</button>
-                <button type="submit" class="btn btn-primary" id="bracketSaveBtn">Save Result</button>
-            </div>
-        </form>
-    </div>
-</div>
-
 <script>
 window.BRACKET_IS_TEAM_EVENT = <?= !empty($tournament['is_team_event']) ? 'true' : 'false' ?>;
+window._bracketTeam1 = '';
+window._bracketTeam2 = '';
+
 
 function calculateSetsFromSetInputs() {
     let p1Games = 0;
@@ -768,6 +673,14 @@ function calculateSetsFromSetInputs() {
     }
 
     document.getElementById('bracketSetScoresInput').value = setScores.join(',');
+
+    // Re-assert team name headers — never let them be overwritten by player name inputs
+    if (window.BRACKET_IS_TEAM_EVENT) {
+        const p1hdr = document.getElementById('bracketSetP1Header');
+        const p2hdr = document.getElementById('bracketSetP2Header');
+        if (p1hdr && window._bracketTeam1) p1hdr.textContent = window._bracketTeam1;
+        if (p2hdr && window._bracketTeam2) p2hdr.textContent = window._bracketTeam2;
+    }
 }
 
 document.addEventListener('DOMContentLoaded', function() {
@@ -787,17 +700,33 @@ function openBracketResultModal(btn) {
     document.getElementById('bracketModalTitle').textContent = isEdit ? 'Edit Match Result' : 'Record Match Result';
     document.getElementById('bracketSaveBtn').textContent = isEdit ? 'Update Result' : 'Save Result';
     document.getElementById('bracketMatchId').value = btn.getAttribute('data-match-id');
-    document.getElementById('bracketMatchLabel').textContent = p1Name + ' vs ' + p2Name;
+
+    const p1Club = btn.getAttribute('data-p1-club') || p1Name;
+    const p2Club = btn.getAttribute('data-p2-club') || p2Name;
+
+    // For team events: use the registered team name (p1Name) as the display name;
+    // p1Club (from the 'club' DB field) is only a fallback if it differs.
+    const p1DisplayName = window.BRACKET_IS_TEAM_EVENT ? (p1Name || p1Club) : p1Name;
+    const p2DisplayName = window.BRACKET_IS_TEAM_EVENT ? (p2Name || p2Club) : p2Name;
 
     if (window.BRACKET_IS_TEAM_EVENT) {
-        document.querySelectorAll('.js-team1-label').forEach(el => el.textContent = p1Name);
-        document.querySelectorAll('.js-team2-label').forEach(el => el.textContent = p2Name);
+        document.getElementById('bracketMatchLabel').textContent = p1DisplayName + ' vs ' + p2DisplayName;
+        document.querySelectorAll('.js-team1-label').forEach(el => el.textContent = p1DisplayName);
+        document.querySelectorAll('.js-team2-label').forEach(el => el.textContent = p2DisplayName);
+    } else {
+        document.getElementById('bracketMatchLabel').textContent = p1Name + ' vs ' + p2Name;
     }
+
+    // Lock the team names into protected variables
+    window._bracketTeam1 = p1DisplayName;
+    window._bracketTeam2 = p2DisplayName;
 
     const p1hdr = document.getElementById('bracketSetP1Header');
     const p2hdr = document.getElementById('bracketSetP2Header');
-    if (p1hdr) p1hdr.textContent = p1Name;
-    if (p2hdr) p2hdr.textContent = p2Name;
+    if (p1hdr) p1hdr.textContent = p1DisplayName;
+    if (p2hdr) p2hdr.textContent = p2DisplayName;
+
+
 
     const form = document.querySelector('#bracketResultModal form');
     const p1ScoreInput = form.querySelector('[name="player1_score"]');
@@ -846,9 +775,11 @@ function openBracketResultModal(btn) {
 
     const sel = document.getElementById('bracketWinnerSelect');
     if (sel) {
+        const wP1Label = window.BRACKET_IS_TEAM_EVENT ? p1DisplayName : p1Name;
+        const wP2Label = window.BRACKET_IS_TEAM_EVENT ? p2DisplayName : p2Name;
         sel.innerHTML = '<option value="">— Select winner —</option>'
-            + '<option value="' + p1Key + '">' + p1Name + '</option>'
-            + '<option value="' + p2Key + '">' + p2Name + '</option>';
+            + '<option value="' + p1Key + '">' + wP1Label + '</option>'
+            + '<option value="' + p2Key + '">' + wP2Label + '</option>';
         sel.value = winnerKey;
         document.getElementById('bracketWinnerKey').value = winnerKey;
         sel.onchange = function () {
@@ -884,6 +815,29 @@ function openBracketResultModal(btn) {
         const size = parseInt(select.value, 10) || 4;
         const groups = Math.ceil(total / size);
         const extra = total % size;
+        let text = total + ' <?= $entrantLabelPlural ?> → about ' + groups + ' group(s)';
+        if (extra !== 0) {
+            text += ' (extra <?= $entrantLabel ?> goes to a random group)';
+        }
+        hint.textContent = text;
+    });
+})();
+
+document.querySelectorAll('.js-bracket-result-btn').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+        openBracketResultModal(btn);
+    });
+});
+
+document.querySelector('#bracketResultModal form')?.addEventListener('submit', function (e) {
+    const sel = document.getElementById('bracketWinnerSelect');
+    document.getElementById('bracketWinnerKey').value = sel.value;
+    if (!sel.value) {
+        e.preventDefault();
+        alert('Please select the winner.');
+    }
+});
+</script>
         let text = total + ' <?= $entrantLabelPlural ?> → about ' + groups + ' group(s)';
         if (extra !== 0) {
             text += ' (extra <?= $entrantLabel ?> goes to a random group)';

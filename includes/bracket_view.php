@@ -39,15 +39,18 @@ if (empty($bracketGroups)): ?>
 
     $viewPhase = $showOnlyPhase ?? 'all';
 
-    // Load participant seeds for seed badge display
+    // Load participant seeds and club/team names for display
     global $participantSeeds;
+    global $participantClubs;
     $participantSeeds = [];
+    $participantClubs = [];
     if (!empty($tid)) {
         require_once __DIR__ . '/../modules/tournaments/tournament_functions.php';
         $entrants = getTournamentEntrants($tid);
         foreach ($entrants as $e) {
             $key = $e['type'] . ':' . $e['id'];
             $participantSeeds[$key] = $e['seed'];
+            $participantClubs[$key] = $e['club'] ?? '';
         }
     }
 
@@ -281,13 +284,20 @@ if (empty($bracketGroups)): ?>
                                     $gameNum = 1;
                                     foreach ($games as $game) {
                                         $parts = explode('|', $game);
-                                        if (count($parts) >= 3) {
-                                            $p1Name = !empty($parts[0]) ? $parts[0] : 'T1 Player';
-                                            $p2Name = !empty($parts[1]) ? $parts[1] : 'T2 Player';
+                                        if (count($parts) >= 4) {
+                                            $gameP1Name = !empty($parts[1]) ? $parts[1] : 'T1 Player';
+                                            $gameP2Name = !empty($parts[2]) ? $parts[2] : 'T2 Player';
+                                            $score = $parts[3];
+                                        } elseif (count($parts) >= 3) {
+                                            $gameP1Name = !empty($parts[0]) ? $parts[0] : 'T1 Player';
+                                            $gameP2Name = !empty($parts[1]) ? $parts[1] : 'T2 Player';
                                             $score = $parts[2];
-                                            if (!empty($score)) {
-                                                $renderedGames[] = "G{$gameNum}: {$p1Name} vs {$p2Name} ({$score})";
-                                            }
+                                        } else {
+                                            $gameNum++;
+                                            continue;
+                                        }
+                                        if (!empty($score)) {
+                                            $renderedGames[] = "G{$gameNum}: {$gameP1Name} vs {$gameP2Name} ({$score})";
                                         }
                                         $gameNum++;
                                     }
@@ -312,6 +322,8 @@ if (empty($bracketGroups)): ?>
                                     data-p2-key="<?= e($p2Key) ?>"
                                     data-p1-name="<?= e($p1Name) ?>"
                                     data-p2-name="<?= e($p2Name) ?>"
+                                    data-p1-club="<?= e($participantClubs[$p1Key] ?? '') ?>"
+                                    data-p2-club="<?= e($participantClubs[$p2Key] ?? '') ?>"
                                     data-p1-sets="<?= (int) $m['player1_score'] ?>"
                                     data-p2-sets="<?= (int) $m['player2_score'] ?>"
                                     data-set-scores="<?= e($m['set_scores'] ?? '') ?>"
