@@ -64,7 +64,7 @@ $entrantLabelPlural = $isTeamEvent ? 'teams' : 'players';
                     $groupSize = $isAllRR ? $entrantCount : normalizeGroupSize((int) $rawGroupSize);
                     $estimatedGroups = $isAllRR ? 1 : estimateGroupCount($entrantCount, $groupSize);
                 ?>
-                    <form method="POST" action="<?= e($formAction) ?>" onsubmit="return confirm('Generate new group brackets? Existing scheduled matches for this tournament will be replaced.');">
+                    <form method="POST" action="<?= e($formAction) ?>" id="groupGenForm" onsubmit="return confirm('Generate new group brackets? Existing scheduled matches for this tournament will be replaced.');">
                         <input type="hidden" name="action" value="generate">
                         <input type="hidden" name="tournament_id" value="<?= $tid ?>">
                         <div style="display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-end; margin-bottom: 16px;">
@@ -89,7 +89,7 @@ $entrantLabelPlural = $isTeamEvent ? 'teams' : 'players';
                                 Randomize <?= $entrantLabel ?> order
                             </label>
                         </div>
-                        <button type="submit" class="btn btn-primary">
+                        <button type="submit" class="btn btn-primary" id="groupGenBtn">
                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
                             Generate Bracket
                         </button>
@@ -423,8 +423,26 @@ if (!empty($bracketGroups)) {
             var btn = document.getElementById('knockoutGenBtn');
             if (btn) { btn.disabled = true; btn.textContent = 'Generating...'; }
         });
-    })();
-    </script>
+})();
+</script>
+
+<div id="groupLoadingOverlay" style="display:none; position:fixed; inset:0; z-index:9999; background:rgba(0,0,0,0.6); backdrop-filter:blur(4px); align-items:center; justify-content:center; flex-direction:column; gap:16px;">
+    <div style="width:56px; height:56px; border:4px solid rgba(255,255,255,0.15); border-top-color:var(--primary, var(--accent)); border-radius:50%; animation:koSpin 0.8s linear infinite;"></div>
+    <div style="color:var(--text-100); font-size:15px; font-weight:600; letter-spacing:0.3px;">Generating group bracket...</div>
+    <div style="color:var(--text-400); font-size:12px;">Splitting participants into groups</div>
+</div>
+<script>
+(function(){
+    var form = document.getElementById('groupGenForm');
+    if (!form) return;
+    form.addEventListener('submit', function(){
+        var overlay = document.getElementById('groupLoadingOverlay');
+        if (overlay) { overlay.style.display = 'flex'; }
+        var btn = document.getElementById('groupGenBtn');
+        if (btn) { btn.disabled = true; btn.textContent = 'Generating...'; }
+    });
+})();
+</script>
 <?php endif; ?>
 
 <?php
