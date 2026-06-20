@@ -341,13 +341,6 @@ function renderTournamentCard(array $t, int $userId): void {
                         <option value="cancelled" <?= $t['status']==='cancelled'?'selected':'' ?> style="background: var(--bg-700); color: var(--text-100);">Cancelled</option>
                     </select>
                 </form>
-                <form method="POST" style="display: inline; margin: 0;">
-                    <input type="hidden" name="action" value="delete">
-                    <input type="hidden" name="tournament_id" value="<?= (int) $t['id'] ?>">
-                    <button type="submit" class="btn btn-danger btn-sm" style="padding: 6px 8px; min-width: 32px; height: 32px; display: inline-flex; align-items: center; justify-content: center;" title="Remove tournament" data-confirm="Remove tournament &quot;<?= e($t['name']) ?>&quot;? This cannot be undone. All registrations and matches will be deleted.">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
-                    </button>
-                </form>
             </div>
         </div>
         <div class="tournament-meta">
@@ -761,9 +754,19 @@ require_once __DIR__ . '/../includes/header.php';
                     <?php $namePrefix = ''; $values = []; include __DIR__ . '/../includes/tournament_prize_fields.php'; ?>
                 </div>
             </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-outline" data-modal-close>Cancel</button>
-                <button type="submit" class="btn btn-primary">Save Changes</button>
+            <div class="modal-footer" style="justify-content: space-between;">
+                <form method="POST" style="display: inline; margin: 0;" onsubmit="return confirm('Delete this tournament? This cannot be undone. All registrations and matches will be deleted.');">
+                    <input type="hidden" name="action" value="delete">
+                    <input type="hidden" name="tournament_id" id="etDeleteId">
+                    <button type="submit" class="btn btn-danger btn-sm" style="padding: 6px 14px; font-size: 12px; display: inline-flex; align-items: center; gap: 6px;">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
+                        Delete Tournament
+                    </button>
+                </form>
+                <div style="display: flex; gap: 8px;">
+                    <button type="button" class="btn btn-outline" data-modal-close>Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Changes</button>
+                </div>
             </div>
         </form>
     </div>
@@ -1017,6 +1020,7 @@ function removeCategoryRow(button) {
 
 function openEditTournament(t) {
     document.getElementById('etId').value     = t.id;
+    document.getElementById('etDeleteId').value = t.id;
     document.getElementById('etName').value   = t.name;
     document.getElementById('etDesc').value   = t.description || '';
     document.getElementById('etCategory').value = t.category || '';
