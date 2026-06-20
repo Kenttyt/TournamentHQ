@@ -118,11 +118,10 @@ $currentPage = basename($_SERVER['PHP_SELF']);
             </a>
             <div class="user-details">
                 <span class="user-name"><?= e($user['username']) ?></span>
-                <span class="user-email"><?= e($user['email']) ?></span>
             </div>
         </div>
-        <a href="/TournamentHQ/includes/logout.php" class="logout-btn" title="Logout" onclick="return confirm('Are you sure you want to log out?');">
-            <i data-lucide="log-out"></i>
+        <a href="/TournamentHQ/includes/logout.php" class="logout-btn logout-btn-text" title="Logout" onclick="return confirm('Are you sure you want to log out?');">
+            Logout
         </a>
     </div>
 </aside>

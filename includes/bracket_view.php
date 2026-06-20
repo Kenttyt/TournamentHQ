@@ -233,7 +233,7 @@ if (empty($bracketGroups)): ?>
                                         <span style="color: var(--text-400); font-style: italic; opacity: 0.65;">TBD</span>
                                     <?php endif; ?>
                                 </span>
-                                <?php if (!empty($recordResultUrl) && $extraClass === 'k-round-1' && $p1Name !== '' && !$isByeMatch && $m['status'] === 'scheduled'): ?>
+                                <?php if (!empty($recordResultUrl) && (!isset($bracketAllowSwap) || $bracketAllowSwap !== false) && $extraClass === 'k-round-1' && $p1Name !== '' && !$isByeMatch && $m['status'] === 'scheduled'): ?>
                                     <button type="button" class="js-swap-slot-btn" 
                                             data-match-id="<?= (int) $m['id'] ?>" 
                                             data-slot="1" 
@@ -262,7 +262,7 @@ if (empty($bracketGroups)): ?>
                                         <span style="color: var(--text-400); font-style: italic; opacity: 0.65;">TBD</span>
                                     <?php endif; ?>
                                 </span>
-                                <?php if (!empty($recordResultUrl) && $extraClass === 'k-round-1' && $p2Name !== '' && !$isByeMatch && $m['status'] === 'scheduled'): ?>
+                                <?php if (!empty($recordResultUrl) && (!isset($bracketAllowSwap) || $bracketAllowSwap !== false) && $extraClass === 'k-round-1' && $p2Name !== '' && !$isByeMatch && $m['status'] === 'scheduled'): ?>
                                     <button type="button" class="js-swap-slot-btn" 
                                             data-match-id="<?= (int) $m['id'] ?>" 
                                             data-slot="2" 

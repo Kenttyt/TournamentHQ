@@ -489,9 +489,11 @@ img { max-width: 100%; display: block; }
     color: var(--text-400);
     transition: all var(--transition);
     flex-shrink: 0;
+    margin-left: auto;
 }
 .logout-btn:hover { color: var(--danger); background: rgba(255,92,124,0.1); }
 .logout-btn svg { width: 16px; height: 16px; }
+.logout-btn-text { width: auto; padding: 6px 14px; font-size: 12px; font-weight: 600; white-space: nowrap; color: var(--danger); }
 
 /* ---- Main Wrapper ---- */
 .main-wrapper {

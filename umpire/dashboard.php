@@ -14,31 +14,65 @@ if ($user['role'] !== 'umpire' && $user['role'] !== 'admin') {
 $pdo = db();
 $userId = (int)$_SESSION['user_id'];
 
-// Get the tournament linked to this umpire
-$stmtUser = $pdo->prepare("SELECT tournament_id, username FROM users WHERE id = ? LIMIT 1");
+// Get the tournament linked to this umpire as default (if umpire)
+$stmtUser = $pdo->prepare("SELECT tournament_id FROM users WHERE id = ? LIMIT 1");
 $stmtUser->execute([$userId]);
 $uData = $stmtUser->fetch();
-$tournamentId = $uData ? (int)$uData['tournament_id'] : 0;
+$linkedTournamentId = $uData ? (int)$uData['tournament_id'] : 0;
 
-if ($user['role'] === 'admin') {
-    $tournamentId = (int)($_GET['tournament_id'] ?? $_POST['tournament_id'] ?? 0);
-    if (!$tournamentId) {
-        $tournamentId = (int)$pdo->query("SELECT id FROM tournaments LIMIT 1")->fetchColumn();
+$linkedTourneyName = '';
+if ($linkedTournamentId) {
+    $stmtT = $pdo->prepare("SELECT name FROM tournaments WHERE id = ?");
+    $stmtT->execute([$linkedTournamentId]);
+    $linkedTourneyName = $stmtT->fetchColumn() ?: '';
+}
+$baseName = preg_replace('/\s*\([^)]+\)$/', '', $linkedTourneyName);
+
+// Retrieve tournaments (filtered by base name if umpire, global if admin)
+if ($user['role'] === 'umpire') {
+    if ($baseName !== '') {
+        $stmtAll = $pdo->prepare("SELECT id, name, sport, category, format, status FROM tournaments WHERE status IN ('upcoming','ongoing') AND name LIKE ? ORDER BY name");
+        $stmtAll->execute([$baseName . '%']);
+        $allTournaments = $stmtAll->fetchAll();
+    } else {
+        $allTournaments = [];
+    }
+} else {
+    $stmtAll = $pdo->query("SELECT id, name, sport, category, format, status FROM tournaments WHERE status IN ('upcoming','ongoing') ORDER BY name");
+    $allTournaments = $stmtAll->fetchAll();
+}
+
+$tid = (int)($_GET['tournament_id'] ?? $_POST['tournament_id'] ?? 0);
+if (!$tid) {
+    if ($linkedTournamentId) {
+        $tid = $linkedTournamentId;
+    } elseif (!empty($allTournaments)) {
+        $tid = (int)$allTournaments[0]['id'];
     }
 }
 
-if (!$tournamentId) {
-    die("No tournament linked to this umpire account.");
+// Ensure the requested tournament ID is allowed for this umpire
+if ($user['role'] === 'umpire' && $tid) {
+    $allowed = false;
+    foreach ($allTournaments as $tItem) {
+        if ((int)$tItem['id'] === $tid) {
+            $allowed = true;
+            break;
+        }
+    }
+    if (!$allowed) {
+        $tid = $linkedTournamentId ? $linkedTournamentId : (!empty($allTournaments) ? (int)$allTournaments[0]['id'] : 0);
+    }
 }
 
-$stmtTourney = $pdo->prepare("SELECT * FROM tournaments WHERE id = ? LIMIT 1");
-$stmtTourney->execute([$tournamentId]);
-$tournament = $stmtTourney->fetch();
-if (!$tournament) {
-    die("Tournament not found.");
+$tournament = null;
+if ($tid) {
+    require_once __DIR__ . '/../modules/tournaments/tournament_functions.php';
+    $tournament = getTournamentById($tid);
 }
 
 require_once __DIR__ . '/../modules/matches/match_functions.php';
+require_once __DIR__ . '/../modules/tournaments/bracket_functions.php';
 
 // Handle recording scores
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'result') {
@@ -49,344 +83,97 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'resul
         recordBracketMatchResult($matchId, $winnerKey, (int) ($_POST['player1_score'] ?? 0), (int) ($_POST['player2_score'] ?? 0), $setScores);
         setFlash('success', 'Match result saved successfully.');
     }
-    header('Location: /TournamentHQ/umpire/dashboard');
+    header('Location: /TournamentHQ/umpire/dashboard?tournament_id=' . $tid);
     exit;
 }
 
-$matches = getTournamentMatches($tournamentId);
+$bracketGroups = $tid ? buildBracketGroups($tid) : [];
+$recordResultUrl = '/TournamentHQ/umpire/dashboard?tournament_id=' . $tid;
+$bracketAllowSwap = false;
+
 $flash = getFlash();
-$formAction = '/TournamentHQ/umpire/dashboard';
+$formAction = '/TournamentHQ/umpire/dashboard?tournament_id=' . $tid;
+
+$bracketIsTeamEvent = $tournament ? !empty($tournament['is_team_event']) : false;
+$bracketEntrantLabel = $bracketIsTeamEvent ? 'team' : 'player';
+$bracketEntrantLabelPlural = $bracketIsTeamEvent ? 'teams' : 'players';
+
+$pageTitle = 'Umpire Dashboard';
+require_once __DIR__ . '/../includes/header.php';
 ?>
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Umpire Dashboard | TournamentHQ</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@400;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://unpkg.com/lucide-static@latest/font/lucide.css">
-    <link rel="stylesheet" href="/TournamentHQ/assets/css/style.css">
-    <style>
-        :root {
-            --primary: #6c63ff;
-            --primary-light: #8b85ff;
-            --accent: #00d4aa;
-            --bg-900: #0d0e1a;
-            --bg-800: #12131f;
-            --bg-700: #1a1b2e;
-            --border: rgba(255,255,255,0.07);
-            --text-100: #f0f2ff;
-            --text-200: #c5c8e8;
-            --text-300: #9094c0;
-            --text-400: #6065a0;
-            --radius-md: 14px;
-            --radius-sm: 8px;
-            --radius-lg: 20px;
-        }
-        body {
-            background-color: var(--bg-900);
-            color: var(--text-100);
-            margin: 0;
-            font-family: 'Inter', sans-serif;
-            min-height: 100vh;
-            display: flex;
-            flex-direction: column;
-        }
-        .umpire-header {
-            position: sticky;
-            top: 0;
-            z-index: 100;
-            background: #0f111a;
-            border-bottom: 1px solid var(--border);
-            padding: 12px 16px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        .umpire-title-block {
-            display: flex;
-            flex-direction: column;
-            gap: 2px;
-        }
-        .tournament-name {
-            font-family: 'Outfit', sans-serif;
-            font-size: 16px;
-            font-weight: 700;
-            color: #fff;
-        }
-        .umpire-badge-block {
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            font-size: 12px;
-            color: var(--text-300);
-        }
-        .umpire-badge {
-            background: rgba(0, 212, 170, 0.12);
-            border: 1px solid rgba(0, 212, 170, 0.25);
-            padding: 2px 6px;
-            border-radius: 4px;
-            color: var(--accent);
-            font-weight: 700;
-            font-family: monospace;
-        }
-        .logout-btn-mob {
-            color: #ff6b6b;
-            border: 1px solid rgba(255,107,107,0.3);
-            background: none;
-            padding: 6px 12px;
-            font-size: 13px;
-            font-weight: 600;
-            border-radius: var(--radius-sm);
-            text-decoration: none;
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            transition: background 0.2s;
-        }
-        .logout-btn-mob:hover {
-            background: rgba(255,107,107,0.1);
-        }
-        .dashboard-container {
-            padding: 16px;
-            flex: 1;
-            max-width: 600px;
-            margin: 0 auto;
-            width: 100%;
-            box-sizing: border-box;
-        }
-        .match-card {
-            background: var(--bg-800);
-            border: 1px solid var(--border);
-            border-radius: var(--radius-md);
-            padding: 14px;
-            margin-bottom: 12px;
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-        }
-        .match-meta-line {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            border-bottom: 1px solid var(--border);
-            padding-bottom: 8px;
-        }
-        .match-round-label {
-            font-size: 12px;
-            font-weight: 700;
-            color: var(--primary-light);
-            text-transform: uppercase;
-            letter-spacing: 0.3px;
-        }
-        .match-status-badge {
-            font-size: 10px;
-            font-weight: 700;
-            padding: 2px 8px;
-            border-radius: 20px;
-            text-transform: uppercase;
-        }
-        .badge-scheduled {
-            background: rgba(255,165,0,0.12);
-            border: 1px solid rgba(255,165,0,0.3);
-            color: #ffb74d;
-        }
-        .badge-ongoing {
-            background: rgba(108,99,255,0.12);
-            border: 1px solid rgba(108,99,255,0.3);
-            color: var(--primary-light);
-        }
-        .badge-completed {
-            background: rgba(0,212,170,0.12);
-            border: 1px solid rgba(0,212,170,0.3);
-            color: var(--accent);
-        }
-        .match-row-mob {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 4px 0;
-        }
-        .entrant-name {
-            font-size: 14px;
-            font-weight: 600;
-            color: var(--text-200);
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-        .entrant-winner {
-            color: #fff;
-            font-weight: 700;
-        }
-        .entrant-winner-dot {
-            width: 6px;
-            height: 6px;
-            background: var(--accent);
-            border-radius: 50%;
-            display: inline-block;
-        }
-        .entrant-score {
-            font-size: 16px;
-            font-weight: 800;
-            color: var(--text-100);
-            font-family: 'Outfit', sans-serif;
-            background: var(--bg-700);
-            border: 1px solid var(--border);
-            padding: 2px 8px;
-            border-radius: 4px;
-            min-width: 24px;
-            text-align: center;
-        }
-        .entrant-score-winner {
-            color: var(--accent);
-            border-color: rgba(0,212,170,0.3);
-            background: rgba(0,212,170,0.05);
-        }
-        .sets-display {
-            font-size: 11px;
-            color: var(--text-400);
-            background: var(--bg-700);
-            padding: 4px 8px;
-            border-radius: 6px;
-            font-family: monospace;
-            text-align: center;
-        }
-    </style>
-</head>
-<body>
 
-<header class="umpire-header">
-    <div class="umpire-title-block">
-        <div class="tournament-name"><?= e($tournament['name']) ?></div>
-        <div class="umpire-badge-block">
-            <span>Umpire:</span>
-            <span class="umpire-badge"><?= e($user['username']) ?></span>
-        </div>
+<div class="page-header" style="flex-wrap: wrap; gap: 16px; margin-bottom: 24px;">
+    <div class="page-heading">
+        <h1>Umpire Portal</h1>
+        <p>Record results and manage brackets for active tournaments</p>
     </div>
-    <a href="/TournamentHQ/includes/logout.php" class="logout-btn-mob" onclick="return confirm('Are you sure you want to log out?');">
-        <i data-lucide="log-out" style="width:14px; height:14px;"></i>
-        <span>Logout</span>
-    </a>
-</header>
-
-<div class="dashboard-container">
-    <?php if ($flash): ?>
-    <div class="flash-message flash-<?= e($flash['type']) ?>" id="flashMessage" style="margin-bottom: 16px;">
-        <i data-lucide="<?= $flash['type'] === 'success' ? 'check-circle' : 'alert-circle' ?>"></i>
-        <?= e($flash['message']) ?>
-        <button onclick="document.getElementById('flashMessage').remove()" class="flash-close">×</button>
+    
+    <div style="display:flex; align-items:center; gap:12px; margin-left:auto;">
+        <label for="tournamentSelect" style="font-size:13px; font-weight:600; color:var(--text-300); white-space:nowrap;">Select Tournament:</label>
+        <select id="tournamentSelect" class="form-select" style="min-width: 250px; background: var(--bg-800); border: 1px solid var(--border); color: var(--text-100); height: 42px;" onchange="window.location='dashboard?tournament_id='+this.value">
+            <?php foreach ($allTournaments as $tItem): ?>
+                <option value="<?= $tItem['id'] ?>" <?= $tid == $tItem['id'] ? 'selected' : '' ?>>
+                    <?= e($tItem['name']) ?>
+                </option>
+            <?php endforeach; ?>
+        </select>
     </div>
-    <?php endif; ?>
-
-    <h2 style="font-family: 'Outfit', sans-serif; font-size: 18px; font-weight: 700; margin: 0 0 16px 0;">Tournament Matches</h2>
-
-    <?php if (empty($matches)): ?>
-        <div class="empty-state">
-            <div class="empty-icon">🏆</div>
-            <h3>No matches scheduled</h3>
-            <p>Matches will appear here once the bracket has been generated.</p>
-        </div>
-    <?php else: ?>
-        <?php foreach ($matches as $m): 
-            $p1Name = trim(($m['p1_first'] ?? '') . ' ' . ($m['p1_last'] ?? ''));
-            $p2Name = trim(($m['p2_first'] ?? '') . ' ' . ($m['p2_last'] ?? ''));
-            
-            // Skip bye matches where both are empty
-            if (empty($p1Name) && empty($p2Name)) {
-                continue;
-            }
-            if (empty($p1Name)) { $p1Name = 'TBD'; }
-            if (empty($p2Name)) { $p2Name = 'TBD'; }
-            
-            $p1Winner = matchWinnerIsSlot($m, 1);
-            $p2Winner = matchWinnerIsSlot($m, 2);
-            
-            $isCompleted = $m['status'] === 'completed';
-            $isActive = !$isCompleted && $p1Name !== 'TBD' && $p2Name !== 'TBD';
-        ?>
-        <div class="match-card">
-            <div class="match-meta-line">
-                <span class="match-round-label"><?= e($m['round_name']) ?><?= $m['table_number'] ? ' · Table ' . $m['table_number'] : '' ?></span>
-                <span class="match-status-badge badge-<?= e($m['status']) ?>"><?= e($m['status']) ?></span>
-            </div>
-            
-            <div style="display:flex; flex-direction:column; gap:8px;">
-                <div class="match-row-mob">
-                    <span class="entrant-name <?= $p1Winner ? 'entrant-winner' : '' ?>">
-                        <?php if ($p1Winner): ?><span class="entrant-winner-dot"></span><?php endif; ?>
-                        <?= e($p1Name) ?>
-                    </span>
-                    <span class="entrant-score <?= $p1Winner ? 'entrant-score-winner' : '' ?>"><?= (int)$m['player1_score'] ?></span>
-                </div>
-                <div class="match-row-mob">
-                    <span class="entrant-name <?= $p2Winner ? 'entrant-winner' : '' ?>">
-                        <?php if ($p2Winner): ?><span class="entrant-winner-dot"></span><?php endif; ?>
-                        <?= e($p2Name) ?>
-                    </span>
-                    <span class="entrant-score <?= $p2Winner ? 'entrant-score-winner' : '' ?>"><?= (int)$m['player2_score'] ?></span>
-                </div>
-            </div>
-
-            <?php if (!empty($m['set_scores'])): ?>
-                <div class="sets-display">
-                    Sets: <?= e($m['set_scores']) ?>
-                </div>
-            <?php endif; ?>
-
-            <?php if ($isActive): ?>
-                <button type="button" class="btn btn-primary btn-sm js-bracket-result-btn" style="width:100%; justify-content:center; height:36px; font-size:13px;"
-                        data-match-id="<?= $m['id'] ?>"
-                        data-p1-key="<?= !empty($m['player1_id']) ? 'player:' . $m['player1_id'] : 'guest:' . $m['player1_guest_id'] ?>"
-                        data-p2-key="<?= !empty($m['player2_id']) ? 'player:' . $m['player2_id'] : 'guest:' . $m['player2_guest_id'] ?>"
-                        data-p1-name="<?= e($p1Name) ?>"
-                        data-p2-name="<?= e($p2Name) ?>"
-                        data-winner-key="<?= matchWinnerKey($m) ?>"
-                        data-p1-sets="<?= (int)$m['player1_score'] ?>"
-                        data-p2-sets="<?= (int)$m['player2_score'] ?>"
-                        data-set-scores="<?= e($m['set_scores']) ?>"
-                        data-edit="<?= $isCompleted ? '1' : '0' ?>">
-                    Record Score
-                </button>
-            <?php elseif ($isCompleted): ?>
-                <button type="button" class="btn btn-outline btn-sm js-bracket-result-btn" style="width:100%; justify-content:center; height:36px; font-size:13px;"
-                        data-match-id="<?= $m['id'] ?>"
-                        data-p1-key="<?= !empty($m['player1_id']) ? 'player:' . $m['player1_id'] : 'guest:' . $m['player1_guest_id'] ?>"
-                        data-p2-key="<?= !empty($m['player2_id']) ? 'player:' . $m['player2_id'] : 'guest:' . $m['player2_guest_id'] ?>"
-                        data-p1-name="<?= e($p1Name) ?>"
-                        data-p2-name="<?= e($p2Name) ?>"
-                        data-winner-key="<?= matchWinnerKey($m) ?>"
-                        data-p1-sets="<?= (int)$m['player1_score'] ?>"
-                        data-p2-sets="<?= (int)$m['player2_score'] ?>"
-                        data-set-scores="<?= e($m['set_scores']) ?>"
-                        data-edit="1">
-                    Edit Result
-                </button>
-            <?php endif; ?>
-        </div>
-        <?php endforeach; ?>
-    <?php endif; ?>
 </div>
+
+<?php if ($tournament): ?>
+    <div class="card mb-24">
+        <div class="card-body" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:16px;">
+            <div>
+                <h2 style="margin:0 0 6px 0; font-family:'Outfit', sans-serif; font-size:18px; font-weight:700; color:var(--text-100);"><?= e($tournament['name']) ?></h2>
+                <div style="display:flex; gap:8px; align-items:center; flex-wrap: wrap;">
+                    <span style="background: rgba(139, 92, 246, 0.12); border: 1px solid rgba(139, 92, 246, 0.25); padding: 2px 8px; border-radius: 20px; color: var(--primary-light); font-size: 10px; font-weight: 700; text-transform: uppercase;">
+                        <?= e($tournament['sport'] ?? 'Table Tennis') ?>
+                    </span>
+                    <span style="background: rgba(0, 212, 170, 0.12); border: 1px solid rgba(0, 212, 170, 0.25); padding: 2px 8px; border-radius: 20px; color: var(--accent); font-size: 10px; font-weight: 700; text-transform: uppercase;">
+                        <?= e($tournament['category'] ?? 'Open Singles') ?>
+                    </span>
+                    <span style="font-size:12px; color:var(--text-400);">
+                        Format: <?= e(ucwords(str_replace('_', ' ', $tournament['format']))) ?>
+                    </span>
+                </div>
+            </div>
+            <div>
+                <span class="badge badge-<?= e($tournament['status']) ?>" style="text-transform: capitalize; font-size: 11px; padding: 4px 12px;">
+                    <?= e($tournament['status']) ?>
+                </span>
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-body" style="padding: 20px 10px;">
+            <?php include __DIR__ . '/../includes/bracket_view.php'; ?>
+        </div>
+    </div>
+<?php else: ?>
+    <div class="empty-state">
+        <div class="empty-icon">🏆</div>
+        <h3>No tournament selected</h3>
+        <p>Please select an active tournament from the dropdown to view and score matches.</p>
+    </div>
+<?php endif; ?>
 
 <!-- Record result modal -->
 <div class="modal-overlay" id="bracketResultModal">
-    <div class="modal" style="max-width: <?= !empty($tournament['is_team_event']) ? '640px' : '420px' ?>;">
+    <div class="modal" style="max-width: <?= $bracketIsTeamEvent ? '640px' : '420px' ?>;">
         <div class="modal-header">
             <div class="modal-title" id="bracketModalTitle">Record Match Result</div>
             <button type="button" class="modal-close" data-modal-close>×</button>
         </div>
         <form method="POST" action="<?= e($formAction) ?>">
             <input type="hidden" name="action" value="result">
-            <input type="hidden" name="tournament_id" value="<?= $tournamentId ?>">
+            <input type="hidden" name="tournament_id" value="<?= $tid ?>">
             <input type="hidden" name="match_id" id="bracketMatchId">
             <input type="hidden" name="winner_key" id="bracketWinnerKey">
             <div class="modal-body">
                 <p id="bracketMatchLabel" style="font-weight: 600; margin-bottom: 16px;"></p>
                 <div class="form-group">
-                    <label class="form-label" id="bracketWinnerLabel"><?= !empty($tournament['is_team_event']) ? 'Winning Team' : 'Winner' ?></label>
+                    <label class="form-label" id="bracketWinnerLabel"><?= $bracketIsTeamEvent ? 'Winning Team' : 'Winner' ?></label>
                     <select id="bracketWinnerSelect" class="form-select" required>
                         <option value="">— Select winner —</option>
                     </select>
@@ -394,7 +181,7 @@ $formAction = '/TournamentHQ/umpire/dashboard';
                 <input type="hidden" name="player1_score" id="bracketP1Score" value="0">
                 <input type="hidden" name="player2_score" id="bracketP2Score" value="0">
                 <div class="form-group" style="margin-top: 16px; border-top: 1px solid var(--border); padding-top: 16px;">
-                    <?php if (!empty($tournament['is_team_event'])): ?>
+                    <?php if ($bracketIsTeamEvent): ?>
                     <label class="form-label" style="font-weight: 600; margin-bottom: 8px;">Game Results</label>
                     <div style="display: grid; grid-template-columns: 60px 1fr 1fr; gap: 10px; align-items: center; margin-bottom: 4px; padding: 0 2px;">
                         <span></span>
@@ -451,11 +238,8 @@ $formAction = '/TournamentHQ/umpire/dashboard';
     </div>
 </div>
 
-<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
 <script>
 document.addEventListener('DOMContentLoaded', () => { 
-    lucide.createIcons(); 
-    
     // Modal close hooks
     document.querySelectorAll('[data-modal-close]').forEach(btn => {
         btn.addEventListener('click', () => {
@@ -464,7 +248,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 });
 
-window.BRACKET_IS_TEAM_EVENT = <?= !empty($tournament['is_team_event']) ? 'true' : 'false' ?>;
+window.BRACKET_IS_TEAM_EVENT = <?= $bracketIsTeamEvent ? 'true' : 'false' ?>;
 window._bracketTeam1 = '';
 window._bracketTeam2 = '';
 
@@ -649,10 +433,12 @@ function openBracketResultModal(btn) {
     document.getElementById('bracketResultModal').classList.add('open');
 }
 
-document.querySelectorAll('.js-bracket-result-btn').forEach(function (btn) {
-    btn.addEventListener('click', function () {
+// Bind buttons (delegated or direct)
+document.addEventListener('click', function(e) {
+    var btn = e.target.closest('.js-bracket-result-btn');
+    if (btn) {
         openBracketResultModal(btn);
-    });
+    }
 });
 
 document.querySelector('#bracketResultModal form')?.addEventListener('submit', function (e) {
@@ -666,5 +452,4 @@ document.querySelector('#bracketResultModal form')?.addEventListener('submit', f
     e.target.submit();
 });
 </script>
-</body>
-</html>
+<?php require_once __DIR__ . '/../includes/footer.php'; ?>

@@ -14,35 +14,50 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $tournamentId = (int)($_POST['tournament_id'] ?? 0);
 
     if ($tournamentId && isTournamentOwnedBy($tournamentId, $userId)) {
-        if ($action === 'generate') {
+        // Fetch the tournament to get its base name
+        $targetTournament = getTournamentById($tournamentId);
+        if ($targetTournament) {
+            $baseName = preg_replace('/\s*\([^)]+\)$/', '', $targetTournament['name']);
+            
+            // Find all tournament IDs under the same organizer with this base name
             $pdo = db();
-            $pdo->beginTransaction();
-            try {
-                // Delete existing umpire account for this tournament
-                $stmtDel = $pdo->prepare("DELETE FROM users WHERE tournament_id = ? AND role = 'umpire'");
-                $stmtDel->execute([$tournamentId]);
-
-                // Generate random unique code: UMP- followed by 4 random uppercase chars
-                $code = 'UMP-' . strtoupper(bin2hex(random_bytes(2)));
-                $email = $code . '@umpire.tournamenthq.com';
-                $hashed = password_hash($code, PASSWORD_DEFAULT);
-
-                $stmtIns = $pdo->prepare("INSERT INTO users (username, password, email, role, tournament_id, is_active, auth_method, is_verified) VALUES (?, ?, ?, 'umpire', ?, 1, 'local', 1)");
-                $stmtIns->execute([$code, $hashed, $email, $tournamentId]);
+            $stmtGroup = $pdo->prepare("SELECT id FROM tournaments WHERE organizer_id = ? AND name LIKE ?");
+            $stmtGroup->execute([$userId, $baseName . '%']);
+            $groupTournaments = $stmtGroup->fetchAll();
+            $tIds = array_column($groupTournaments, 'id');
+            
+            if (!empty($tIds)) {
+                $inClause = implode(',', array_map('intval', $tIds));
                 
-                $pdo->commit();
-                setFlash('success', 'Umpire Access Code generated: ' . $code);
-            } catch (Exception $e) {
-                $pdo->rollBack();
-                setFlash('danger', 'Failed to generate access code.');
-            }
-        } elseif ($action === 'revoke') {
-            $pdo = db();
-            $stmtDel = $pdo->prepare("DELETE FROM users WHERE tournament_id = ? AND role = 'umpire'");
-            if ($stmtDel->execute([$tournamentId])) {
-                setFlash('success', 'Umpire Access Code revoked.');
-            } else {
-                setFlash('danger', 'Failed to revoke access.');
+                if ($action === 'generate') {
+                    $pdo->beginTransaction();
+                    try {
+                        // Delete existing umpire accounts for all categories in this group
+                        $pdo->exec("DELETE FROM users WHERE role = 'umpire' AND tournament_id IN ($inClause)");
+
+                        // Generate random unique code: UMP- followed by 4 random uppercase chars
+                        $code = 'UMP-' . strtoupper(bin2hex(random_bytes(2)));
+                        $email = $code . '@umpire.tournamenthq.com';
+                        $hashed = password_hash($code, PASSWORD_DEFAULT);
+
+                        // Link it to the tournamentId that was submitted (the first tournament of the group)
+                        $stmtIns = $pdo->prepare("INSERT INTO users (username, password, email, role, tournament_id, is_active, auth_method, is_verified) VALUES (?, ?, ?, 'umpire', ?, 1, 'local', 1)");
+                        $stmtIns->execute([$code, $hashed, $email, $tournamentId]);
+                        
+                        $pdo->commit();
+                        setFlash('success', 'Umpire Access Code generated: ' . $code);
+                    } catch (Exception $e) {
+                        $pdo->rollBack();
+                        setFlash('danger', 'Failed to generate access code.');
+                    }
+                } elseif ($action === 'revoke') {
+                    $stmtDel = $pdo->prepare("DELETE FROM users WHERE role = 'umpire' AND tournament_id IN ($inClause)");
+                    if ($stmtDel->execute()) {
+                        setFlash('success', 'Umpire Access Code revoked.');
+                    } else {
+                        setFlash('danger', 'Failed to revoke access.');
+                    }
+                }
             }
         }
     } else {
@@ -54,13 +69,53 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 $myTourneys = getOrganizerTournaments($userId);
 
+// Group tournaments by their base name
+$groupedTourneys = [];
+foreach ($myTourneys as $t) {
+    $baseName = preg_replace('/\s*\([^)]+\)$/', '', $t['name']);
+    if (!isset($groupedTourneys[$baseName])) {
+        $groupedTourneys[$baseName] = [
+            'base_name' => $baseName,
+            'start_date' => $t['start_date'],
+            'sport' => $t['sport'] ?? 'Table Tennis',
+            'status' => $t['status'],
+            'first_id' => $t['id'], // represent this group with the first ID
+            'categories' => [],
+            'umpire_code' => null,
+        ];
+    }
+    $groupedTourneys[$baseName]['categories'][] = $t['category'];
+    if ($t['status'] === 'ongoing') {
+        $groupedTourneys[$baseName]['status'] = 'ongoing';
+    }
+}
+
+// Fetch umpire codes for each group
+foreach ($groupedTourneys as $baseName => &$group) {
+    $stmtCode = db()->prepare("
+        SELECT u.username 
+        FROM users u 
+        JOIN tournaments t ON u.tournament_id = t.id 
+        WHERE u.role = 'umpire' 
+          AND t.organizer_id = ? 
+          AND t.name LIKE ? 
+        LIMIT 1
+    ");
+    $stmtCode->execute([$userId, $baseName . '%']);
+    $umpire = $stmtCode->fetch();
+    if ($umpire) {
+        $group['umpire_code'] = $umpire['username'];
+    }
+}
+unset($group);
+
 require_once __DIR__ . '/../includes/header.php';
 ?>
 
 <div class="page-header">
     <div class="page-heading">
         <h1>Umpire Access Codes</h1>
-        <p>Generate and manage generic, single-field access codes for tournament umpires</p>
+        <p>Generate one access code per tournament name. Umpires can log in and select any category within the tournament.</p>
     </div>
 </div>
 
@@ -71,14 +126,14 @@ require_once __DIR__ . '/../includes/header.php';
                 <thead>
                     <tr>
                         <th>Tournament</th>
-                        <th>Sport / Category</th>
+                        <th>Categories</th>
                         <th>Status</th>
                         <th>Umpire Access Code</th>
                         <th style="text-align: right;">Action</th>
                     </tr>
                 </thead>
                 <tbody>
-                <?php if (empty($myTourneys)): ?>
+                <?php if (empty($groupedTourneys)): ?>
                     <tr>
                         <td colspan="5">
                             <div class="empty-state">
@@ -88,31 +143,26 @@ require_once __DIR__ . '/../includes/header.php';
                         </td>
                     </tr>
                 <?php else: ?>
-                    <?php foreach ($myTourneys as $t): 
-                        // Fetch the current umpire code if it exists
-                        $stmtCode = db()->prepare("SELECT username FROM users WHERE role = 'umpire' AND tournament_id = ? LIMIT 1");
-                        $stmtCode->execute([$t['id']]);
-                        $umpire = $stmtCode->fetch();
-                        $currentCode = $umpire ? $umpire['username'] : null;
+                    <?php foreach ($groupedTourneys as $g): 
+                        $currentCode = $g['umpire_code'];
                     ?>
                     <tr>
                         <td>
-                            <div style="font-weight:600; color:var(--text-100);"><?= e($t['name']) ?></div>
-                            <div class="text-xs text-muted" style="margin-top:2px;">Starts: <?= date('M j, Y', strtotime($t['start_date'])) ?></div>
+                            <div style="font-weight:600; color:var(--text-100);"><?= e($g['base_name']) ?></div>
+                            <div class="text-xs text-muted" style="margin-top:2px;">Starts: <?= date('M j, Y', strtotime($g['start_date'])) ?></div>
                         </td>
                         <td>
-                            <div style="display:flex; gap:6px;">
-                                <span style="background: rgba(139, 92, 246, 0.12); border: 1px solid rgba(139, 92, 246, 0.25); padding: 2px 8px; border-radius: 20px; color: var(--primary-light); font-size: 10px; font-weight: 700; text-transform: uppercase;">
-                                    <?= e($t['sport'] ?? 'Table Tennis') ?>
-                                </span>
-                                <span style="background: rgba(0, 212, 170, 0.12); border: 1px solid rgba(0, 212, 170, 0.25); padding: 2px 8px; border-radius: 20px; color: var(--accent); font-size: 10px; font-weight: 700; text-transform: uppercase;">
-                                    <?= e($t['category'] ?? 'Open Singles') ?>
-                                </span>
+                            <div style="display:flex; gap:6px; flex-wrap:wrap; max-width: 400px;">
+                                <?php foreach ($g['categories'] as $cat): ?>
+                                    <span style="background: rgba(0, 212, 170, 0.12); border: 1px solid rgba(0, 212, 170, 0.25); padding: 2px 8px; border-radius: 20px; color: var(--accent); font-size: 10px; font-weight: 700; text-transform: uppercase;">
+                                        <?= e($cat) ?>
+                                    </span>
+                                <?php endforeach; ?>
                             </div>
                         </td>
                         <td>
-                            <span class="badge badge-<?= e($t['status']) ?>" style="text-transform: capitalize;">
-                                <?= e($t['status']) ?>
+                            <span class="badge badge-<?= e($g['status']) ?>" style="text-transform: capitalize;">
+                                <?= e($g['status']) ?>
                             </span>
                         </td>
                         <td>
@@ -128,7 +178,7 @@ require_once __DIR__ . '/../includes/header.php';
                             <div style="display:flex; justify-content:flex-end; gap:8px;">
                                 <form method="POST" style="display:inline-block; margin:0;">
                                     <input type="hidden" name="action" value="generate">
-                                    <input type="hidden" name="tournament_id" value="<?= $t['id'] ?>">
+                                    <input type="hidden" name="tournament_id" value="<?= $g['first_id'] ?>">
                                     <button type="submit" class="btn btn-primary btn-sm">
                                         <?= $currentCode ? 'Regenerate Code' : 'Generate Code' ?>
                                     </button>
@@ -136,7 +186,7 @@ require_once __DIR__ . '/../includes/header.php';
                                 <?php if ($currentCode): ?>
                                     <form method="POST" style="display:inline-block; margin:0;" onsubmit="return confirm('Are you sure you want to revoke umpire access for this tournament?');">
                                         <input type="hidden" name="action" value="revoke">
-                                        <input type="hidden" name="tournament_id" value="<?= $t['id'] ?>">
+                                        <input type="hidden" name="tournament_id" value="<?= $g['first_id'] ?>">
                                         <button type="submit" class="btn btn-outline btn-sm" style="color:#ff6b6b; border-color:rgba(255,107,107,0.3);">
                                             Revoke Access
                                         </button>
