@@ -332,7 +332,7 @@ if (!empty($bracketGroups)) {
                     </div>
                 <?php endif; ?>
                 
-                <form method="POST" action="<?= e($formAction) ?>" onsubmit="return confirm('Generate knockout bracket? This will fetch Rank 1 & Rank 2 from each group and create matches.');">
+                <form method="POST" action="<?= e($formAction) ?>" id="knockoutGenForm" onsubmit="return confirm('Generate knockout bracket? This will fetch Rank 1 & Rank 2 from each group and create matches.');">
                     <input type="hidden" name="action" value="generate_knockout">
                     <input type="hidden" name="tournament_id" value="<?= $tid ?>">
                     <div style="display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-end;">
@@ -347,7 +347,7 @@ if (!empty($bracketGroups)) {
                             <input type="checkbox" name="include_3rd_place" value="1" checked>
                             Include 3rd Place Playoff
                         </label>
-                        <button type="submit" class="btn btn-accent">
+                        <button type="submit" class="btn btn-accent" id="knockoutGenBtn">
                             Generate Knockout Bracket
                         </button>
                     </div>
@@ -403,6 +403,25 @@ if (!empty($bracketGroups)) {
                 if (icon) icon.style.transform = 'rotate(-180deg)';
                 localStorage.setItem('proceed_knockout_collapsed', 'true');
             }
+        });
+    })();
+    </script>
+
+    <div id="knockoutLoadingOverlay" style="display:none; position:fixed; inset:0; z-index:9999; background:rgba(0,0,0,0.6); backdrop-filter:blur(4px); align-items:center; justify-content:center; flex-direction:column; gap:16px;">
+        <div style="width:56px; height:56px; border:4px solid rgba(255,255,255,0.15); border-top-color:var(--accent); border-radius:50%; animation:koSpin 0.8s linear infinite;"></div>
+        <div style="color:var(--text-100); font-size:15px; font-weight:600; letter-spacing:0.3px;">Generating knockout bracket...</div>
+        <div style="color:var(--text-400); font-size:12px;">Seeding qualifiers and building matches</div>
+    </div>
+    <style>@keyframes koSpin{to{transform:rotate(360deg)}}</style>
+    <script>
+    (function(){
+        var form = document.getElementById('knockoutGenForm');
+        if (!form) return;
+        form.addEventListener('submit', function(){
+            var overlay = document.getElementById('knockoutLoadingOverlay');
+            if (overlay) { overlay.style.display = 'flex'; }
+            var btn = document.getElementById('knockoutGenBtn');
+            if (btn) { btn.disabled = true; btn.textContent = 'Generating...'; }
         });
     })();
     </script>

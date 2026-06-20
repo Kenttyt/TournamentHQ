@@ -385,6 +385,11 @@ function generateKnockoutStage(int $tournamentId, string $bracketType, bool $inc
         }
     }
 
+    // Randomize positions within each half — maintains R1 vs R2 constraint
+    // but shuffles which specific R1/R2 faces which opponent.
+    shuffle($rank1s);
+    shuffle($rank2s);
+
     $halfSize = $bracketSize / 2;
     $seeded = array_merge(
         array_pad($rank1s, $halfSize, null),
