@@ -207,8 +207,25 @@ require_once __DIR__ . '/../includes/header.php';
                 <p>Check back later for new events!</p>
             </div>
         <?php else: ?>
+            <div style="padding: 16px 20px; border-bottom: 1px solid var(--border); display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
+                <span style="font-size: 12px; font-weight: 600; color: var(--text-300);">Filter:</span>
+                <select id="filterSport" class="form-select" style="width: auto; min-width: 140px; height: 34px; font-size: 12px; padding: 4px 10px;">
+                    <option value="">All Sports</option>
+                    <option value="Table Tennis">Table Tennis</option>
+                    <option value="Lawn Tennis">Lawn Tennis</option>
+                    <option value="Badminton">Badminton</option>
+                    <option value="Pickleball">Pickleball</option>
+                </select>
+                <select id="filterFormat" class="form-select" style="width: auto; min-width: 140px; height: 34px; font-size: 12px; padding: 4px 10px;">
+                    <option value="">All Formats</option>
+                    <option value="Singles">Singles</option>
+                    <option value="Doubles">Doubles</option>
+                    <option value="Team">Team Events</option>
+                </select>
+                <input type="text" id="filterSearch" placeholder="Search tournaments..." class="form-control" style="width: auto; min-width: 180px; height: 34px; font-size: 12px; padding: 4px 10px;">
+            </div>
             <div style="overflow-x: auto;">
-                <table class="data-table">
+                <table class="data-table" id="exploreTable">
                     <thead>
                         <tr>
                             <th>Tournament Name</th>
@@ -230,8 +247,12 @@ require_once __DIR__ . '/../includes/header.php';
                             $isPending = $regStatus === 'pending';
                             $isFull = $t['registered_count'] >= $t['max_players'];
                             $percent = $t['max_players'] > 0 ? min(100, round(($t['registered_count'] / $t['max_players']) * 100)) : 0;
+                            $rowSport = e($t['sport'] ?? 'Table Tennis');
+                            $rowCategory = e($t['category'] ?? 'Open Singles');
+                            $rowCatLower = strtolower($t['category'] ?? '');
+                            $rowFormat = !empty($t['is_team_event']) ? 'Team' : (strpos($rowCatLower, 'double') !== false ? 'Doubles' : 'Singles');
                         ?>
-                            <tr>
+                            <tr data-sport="<?= $rowSport ?>" data-format="<?= $rowFormat ?>">
                                 <td>
                                     <div style="font-weight: 700; color: var(--text-100);">
                                         <a href="tournament_bracket.php?tournament_id=<?= $t['id'] ?>" style="color: var(--primary-light); text-decoration: none;" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">
@@ -358,7 +379,7 @@ require_once __DIR__ . '/../includes/header.php';
         <div class="card-header">
             <div class="card-title">
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89L17 22l-5-3-5 3 1.523-9.11"/></svg>
-                My Registered Players
+                My Registrations & Teams
             </div>
             <span class="text-muted text-xs">Players you submitted, grouped by tournament</span>
         </div>
@@ -795,6 +816,35 @@ document.querySelectorAll('.js-join-tournament-btn').forEach(function (btn) {
         );
     });
 });
+
+(function() {
+    var sportSel = document.getElementById('filterSport');
+    var formatSel = document.getElementById('filterFormat');
+    var searchInput = document.getElementById('filterSearch');
+    var table = document.getElementById('exploreTable');
+    if (!sportSel || !formatSel || !searchInput || !table) return;
+
+    function applyFilters() {
+        var sport = sportSel.value.toLowerCase();
+        var format = formatSel.value.toLowerCase();
+        var search = searchInput.value.toLowerCase();
+        var rows = table.querySelectorAll('tbody tr');
+        rows.forEach(function(row) {
+            var rowSport = (row.getAttribute('data-sport') || '').toLowerCase();
+            var rowFormat = (row.getAttribute('data-format') || '').toLowerCase();
+            var rowText = row.textContent.toLowerCase();
+            var show = true;
+            if (sport && rowSport !== sport) show = false;
+            if (format && rowFormat !== format) show = false;
+            if (search && rowText.indexOf(search) === -1) show = false;
+            row.style.display = show ? '' : 'none';
+        });
+    }
+
+    sportSel.addEventListener('change', applyFilters);
+    formatSel.addEventListener('change', applyFilters);
+    searchInput.addEventListener('input', applyFilters);
+})();
 </script>
 
 <?php require_once __DIR__ . '/../includes/footer.php'; ?>
