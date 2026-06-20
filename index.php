@@ -494,7 +494,7 @@ if (isLoggedIn()) {
         </a>
         <nav class="nav-links">
             <a href="/TournamentHQ/play.php" class="nav-link-item">
-                <i data-lucide="gamepad-2" style="width:16px;height:16px;"></i> Play
+                <i data-lucide="trophy" style="width:16px;height:16px;"></i> Play
             </a>
             <a href="/TournamentHQ/login.php?role=organizer" class="nav-link-item">
                 <i data-lucide="layout-grid" style="width:16px;height:16px;"></i> Organize
