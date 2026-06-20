@@ -118,6 +118,21 @@ function generateTournamentBracket(
     }
 
     $entrants = getTournamentEntrants($tournamentId);
+
+    // Deduplicate: if the same person is registered as both a player and a guest,
+    // keep only the player entry to prevent them appearing in multiple groups.
+    $seenNames = [];
+    $deduped = [];
+    foreach ($entrants as $e) {
+        $nameKey = strtolower(trim($e['first_name'] . ' ' . $e['last_name']));
+        if (isset($seenNames[$nameKey])) {
+            continue;
+        }
+        $seenNames[$nameKey] = true;
+        $deduped[] = $e;
+    }
+    $entrants = $deduped;
+
     $count = count($entrants);
     if ($count < 2) {
         return ['ok' => false, 'message' => 'At least 2 participants (players or guests) are required to generate a bracket.'];
@@ -352,9 +367,14 @@ function generateKnockoutStage(int $tournamentId, string $bracketType, bool $inc
     // Delete any existing knockout matches (round > 1)
     db()->prepare("DELETE FROM matches WHERE tournament_id = ? AND round > 1")->execute([$tournamentId]);
     
-    // Build the seeded list: rank 1 qualifiers first (stronger seeds), then rank 2 qualifiers
-    // This ensures rank 1 players get the top seeds and rank 2 players get lower seeds.
-    // With standard bracket seeding, rank 1 players will never face each other in the first round.
+    // Build seeded list: rank 1s in top half, rank 2s in bottom half.
+    // Standard bracket seeding pairs top-half vs bottom-half, so this guarantees
+    // every first-round match is R1 vs R2, and same-group opponents are separated.
+    $bracketSize = 1;
+    while ($bracketSize < $count) {
+        $bracketSize *= 2;
+    }
+
     $rank1s = [];
     $rank2s = [];
     for ($i = 0; $i < $count; $i++) {
@@ -364,16 +384,12 @@ function generateKnockoutStage(int $tournamentId, string $bracketType, bool $inc
             $rank2s[] = $qualifiers[$i];
         }
     }
-    $seeded = array_merge($rank1s, $rank2s);
-    
-    // Pad to next power of 2 with null entries (byes)
-    $bracketSize = 1;
-    while ($bracketSize < count($seeded)) {
-        $bracketSize *= 2;
-    }
-    while (count($seeded) < $bracketSize) {
-        $seeded[] = null; // bye slot
-    }
+
+    $halfSize = $bracketSize / 2;
+    $seeded = array_merge(
+        array_pad($rank1s, $halfSize, null),
+        array_pad($rank2s, $halfSize, null)
+    );
 
     
     // Get standard bracket seeding order

@@ -227,6 +227,8 @@ if (empty($bracketGroups)): ?>
                                 <span style="flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 12px; padding-right: 6px;" title="<?= e($p1Name) ?>">
                                     <?php if ($p1Name !== ''): ?>
                                         <?= e($p1Name) ?>
+                                    <?php elseif ($isByeMatch): ?>
+                                        <span style="color: var(--accent); font-size: 10px; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase; opacity: 0.85;">BYE</span>
                                     <?php else: ?>
                                         <span style="color: var(--text-400); font-style: italic; opacity: 0.65;">TBD</span>
                                     <?php endif; ?>
