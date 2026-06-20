@@ -189,7 +189,10 @@ require_once __DIR__ . '/../includes/header.php';
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 20px; height: 20px; color: var(--accent);"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
             Explore & Register Players
         </div>
-        <span class="text-muted text-xs">Add players to enter a tournament </span>
+        <button type="button" onclick="location.reload()" class="btn btn-outline btn-sm" style="padding: 4px 10px; font-size: 11px; height: auto; display: inline-flex; align-items: center; gap: 4px;" title="Refresh list">
+            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg>
+            Refresh
+        </button>
     </div>
     <div class="card-body" style="padding: 0;">
         <?php
