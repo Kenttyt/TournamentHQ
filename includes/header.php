@@ -51,6 +51,7 @@ if ($role === 'admin') {
     $navLinks = [
         ['href' => '/TournamentHQ/organizer/index.php',       'icon' => 'grid',   'label' => 'Dashboard'],
         ['href' => '/TournamentHQ/organizer/tournaments.php', 'icon' => 'trophy', 'label' => 'Tournaments'],
+        ['href' => '/TournamentHQ/organizer/umpire_access.php', 'icon' => 'key', 'label' => 'Umpire Access'],
         ['href' => '/TournamentHQ/organizer/bracket_generator.php', 'icon' => 'git-branch', 'label' => 'Auto Bracket'],
         ['href' => '/TournamentHQ/organizer/players.php',     'icon' => 'users',  'label' => 'Players'],
         ['href' => '/TournamentHQ/organizer/notifications.php', 'icon' => 'bell', 'label' => 'Notifications', 'badge' => $notificationCount],

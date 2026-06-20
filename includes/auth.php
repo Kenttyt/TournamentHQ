@@ -104,6 +104,8 @@ function getDashboardUrl($role) {
             return '/TournamentHQ/organizer/index.php';
         case 'player':
             return '/TournamentHQ/player/index.php';
+        case 'umpire':
+            return '/TournamentHQ/umpire/dashboard';
         default:
             return '/TournamentHQ/index.php';
     }

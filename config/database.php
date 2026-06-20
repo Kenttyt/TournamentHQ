@@ -179,6 +179,23 @@ class Database {
         } catch (PDOException $e) {
             // Ignore if table doesn't exist yet
         }
+
+        // Modify users role enum to support 'umpire'
+        try {
+            $pdo->exec("ALTER TABLE users MODIFY COLUMN role ENUM('admin','organizer','player','umpire') NOT NULL DEFAULT 'player'");
+        } catch (PDOException $e) {
+            // Ignore if already modified or fails
+        }
+
+        // Add tournament_id column to users table
+        try {
+            $pdo->query("SELECT tournament_id FROM users LIMIT 1");
+        } catch (PDOException $e) {
+            try {
+                $pdo->exec("ALTER TABLE users ADD COLUMN tournament_id INT NULL AFTER role");
+                $pdo->exec("ALTER TABLE users ADD CONSTRAINT fk_users_tournament FOREIGN KEY (tournament_id) REFERENCES tournaments(id) ON DELETE CASCADE");
+            } catch (PDOException $ex) {}
+        }
     }
 
     /** Default login: username admin, password admin */
