@@ -698,3 +698,4 @@ function advanceDoubleElimination(array $match, string $winnerKey, string $loser
         }
     }
 }
+

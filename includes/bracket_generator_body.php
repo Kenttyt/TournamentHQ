@@ -185,7 +185,7 @@ $entrantLabelPlural = $isTeamEvent ? 'teams' : 'players';
         </div>
     </div>
         <div id="bracketCardBody" style="transition: max-height 0.4s ease-in-out, opacity 0.2s; max-height: 5000px; overflow: hidden; opacity: 1;">
-        <div class="card-body">
+        <div class="card-body" id="bracket-view-body">
             <?php
             $recordResultUrl = $formAction;
             $showOnlyPhase = 'group';
@@ -475,7 +475,7 @@ if (!empty($bracketGroups)) {
             </div>
         </div>
         <div id="knockoutBracketCardBody" style="transition: max-height 0.4s ease-in-out, opacity 0.2s; max-height: 5000px; overflow: hidden; opacity: 1;">
-            <div class="card-body">
+            <div class="card-body" id="knockout-view-body">
                 <?php
                 $recordResultUrl = $formAction;
                 $showOnlyPhase = 'knockout';
@@ -860,10 +860,9 @@ function openBracketResultModal(btn) {
     });
 })();
 
-document.querySelectorAll('.js-bracket-result-btn').forEach(function (btn) {
-    btn.addEventListener('click', function () {
-        openBracketResultModal(btn);
-    });
+document.addEventListener('click', function (e) {
+    var btn = e.target.closest('.js-bracket-result-btn');
+    if (btn) openBracketResultModal(btn);
 });
 
 document.querySelector('#bracketResultModal form')?.addEventListener('submit', function (e) {
@@ -877,3 +876,118 @@ document.querySelector('#bracketResultModal form')?.addEventListener('submit', f
     e.target.submit();
 });
 </script>
+<?php if (!empty($tid)): ?>
+<script>
+(function() {
+    var TOURNAMENT_ID = <?= (int)$tid ?>;
+    if (!TOURNAMENT_ID || window.__bracketPolling) return;
+
+    var POLL_INTERVAL = 2000;
+    var pollTimer = null;
+    var lastTs = -1;
+    var isRefreshing = false;
+
+    function createStatusDot() {
+        var header = document.getElementById('bracketCardHeader');
+        if (!header || document.getElementById('ws-status-dot')) return;
+        var dot = document.createElement('span');
+        dot.id = 'ws-status-dot';
+        dot.title = 'Live updates active';
+        dot.style.cssText = 'display:inline-block;width:8px;height:8px;border-radius:50%;background:#00d4aa;margin-left:8px;vertical-align:middle;transition:background 0.3s;';
+        var wrapper = header.querySelector('div');
+        if (wrapper) wrapper.appendChild(dot);
+    }
+
+    function setStatus(color, title) {
+        var dot = document.getElementById('ws-status-dot');
+        if (dot) { dot.style.background = color; dot.title = title; }
+    }
+
+    function refreshBrackets() {
+        if (isRefreshing) return;
+        isRefreshing = true;
+        setStatus('#f0ad4e', 'Updating...');
+
+        var baseUrl = '/TournamentHQ/includes/bracket_view_ajax.php?tournament_id=' + TOURNAMENT_ID + '&record_result_url=' + encodeURIComponent('<?= e($formAction) ?>') + '&_=';
+        var ts = Date.now();
+        var pending = 0;
+        var updated = false;
+
+        var groupContainer = document.getElementById('bracket-view-body');
+        var knockoutContainer = document.getElementById('knockout-view-body');
+
+        function onPhaseDone() {
+            pending--;
+            if (pending <= 0) {
+                isRefreshing = false;
+                if (typeof window.drawBracketLines === 'function') window.drawBracketLines();
+                if (typeof adjustGridColumns === 'function') adjustGridColumns();
+                setStatus(updated ? '#00d4aa' : '#f0ad4e', updated ? 'Live updates active' : 'Update failed');
+            }
+        }
+
+        function replaceHTML(container, html) {
+            if (!container || !html.trim()) { onPhaseDone(); return; }
+            container.innerHTML = html;
+            var scripts = container.querySelectorAll('script');
+            scripts.forEach(function(old) {
+                var s = document.createElement('script');
+                if (old.src) s.src = old.src; else s.textContent = old.textContent;
+                old.parentNode.replaceChild(s, old);
+            });
+            updated = true;
+            onPhaseDone();
+        }
+
+        pending++;
+        var xhrGroup = new XMLHttpRequest();
+        xhrGroup.open('GET', baseUrl + ts + '&phase=group', true);
+        xhrGroup.onload = function() {
+            replaceHTML(groupContainer, xhrGroup.status === 200 ? xhrGroup.responseText : '');
+        };
+        xhrGroup.onerror = function() { replaceHTML(groupContainer, ''); };
+        xhrGroup.send();
+
+        if (knockoutContainer) {
+            pending++;
+            var xhrKO = new XMLHttpRequest();
+            xhrKO.open('GET', baseUrl + ts + '&phase=knockout', true);
+            xhrKO.onload = function() {
+                replaceHTML(knockoutContainer, xhrKO.status === 200 ? xhrKO.responseText : '');
+            };
+            xhrKO.onerror = function() { replaceHTML(knockoutContainer, ''); };
+            xhrKO.send();
+        }
+    }
+
+    function poll() {
+        var xhr = new XMLHttpRequest();
+        xhr.open('GET', '/TournamentHQ/includes/match_timestamp.php?tournament_id=' + TOURNAMENT_ID + '&_=' + Date.now(), true);
+        xhr.onload = function() {
+            if (xhr.status === 200) {
+                try {
+                    var data = JSON.parse(xhr.responseText);
+                    var ts = parseFloat(data.timestamp) || 0;
+                    if (lastTs === -1) {
+                        lastTs = ts;
+                        createStatusDot();
+                        setStatus('#00d4aa', 'Live updates active');
+                        return;
+                    }
+                    if (ts > lastTs) {
+                        lastTs = ts;
+                        refreshBrackets();
+                    }
+                } catch(e) {}
+            }
+        };
+        xhr.send();
+    }
+
+    poll();
+    pollTimer = setInterval(poll, POLL_INTERVAL);
+
+    window.__bracketPolling = true;
+})();
+</script>
+<?php endif; ?>

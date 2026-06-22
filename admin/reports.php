@@ -19,6 +19,21 @@ $totalMatches  = getMatchCount();
 $totalWins = 0; $totalLosses = 0;
 foreach ($playersList as $p) { $totalWins += $p['wins']; $totalLosses += $p['losses']; }
 
+// Chart data
+$genderRows = db()->query("SELECT gender, COUNT(*) AS cnt FROM players GROUP BY gender")->fetchAll();
+$genderLabels = []; $genderData = [];
+foreach ($genderRows as $r) { $genderLabels[] = ucfirst($r['gender']); $genderData[] = (int) $r['cnt']; }
+
+$formatRows = db()->query("SELECT format, COUNT(*) AS cnt FROM tournaments GROUP BY format")->fetchAll();
+$formatLabels = []; $formatData = [];
+foreach ($formatRows as $r) { $formatLabels[] = ucfirst(str_replace('_', ' ', $r['format'])); $formatData[] = (int) $r['cnt']; }
+
+$statusRows = db()->query("SELECT status, COUNT(*) AS cnt FROM tournaments GROUP BY status")->fetchAll();
+$statusLabels = []; $statusData = [];
+foreach ($statusRows as $r) { $statusLabels[] = ucfirst($r['status']); $statusData[] = (int) $r['cnt']; }
+
+$extraJs = '<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>';
+
 require_once __DIR__ . '/../includes/header.php';
 ?>
 
@@ -57,6 +72,54 @@ require_once __DIR__ . '/../includes/header.php';
         <div class="stat-info">
             <div class="stat-value"><?= $totalWins ?></div>
             <div class="stat-label">Total Sets Won</div>
+        </div>
+    </div>
+</div>
+
+<!-- Charts -->
+<div class="content-grid" style="grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));">
+    <div class="card">
+        <div class="card-header">
+            <div class="card-title">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+                Player Gender Distribution
+            </div>
+        </div>
+        <div class="card-body" style="display:flex;justify-content:center;padding:12px">
+            <canvas id="genderChart" style="max-height:180px"></canvas>
+        </div>
+    </div>
+    <div class="card">
+        <div class="card-header">
+            <div class="card-title">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+                Tournament Format Distribution
+            </div>
+        </div>
+        <div class="card-body" style="display:flex;justify-content:center;padding:12px">
+            <canvas id="formatChart" style="max-height:180px"></canvas>
+        </div>
+    </div>
+    <div class="card">
+        <div class="card-header">
+            <div class="card-title">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                Tournament Status
+            </div>
+        </div>
+        <div class="card-body" style="display:flex;justify-content:center;padding:12px">
+            <canvas id="statusChart" style="max-height:180px"></canvas>
+        </div>
+    </div>
+    <div class="card">
+        <div class="card-header">
+            <div class="card-title">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                Overall Win / Loss Ratio
+            </div>
+        </div>
+        <div class="card-body" style="display:flex;justify-content:center;padding:12px">
+            <canvas id="winLossChart" style="max-height:180px"></canvas>
         </div>
     </div>
 </div>
@@ -166,5 +229,58 @@ require_once __DIR__ . '/../includes/header.php';
         </div>
     </div>
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const palette = ['#7c3aed','#14b8a6','#f59e0b','#3b82f6','#ec4899','#10b981','#f97316','#6366f1'];
+
+    function pieOpts(title) {
+        return {
+            responsive: true,
+            maintainAspectRatio: true,
+            plugins: {
+                legend: { position: 'bottom', labels: { padding: 16, usePointStyle: true, font: { size: 13 } } },
+                title: { display: false }
+            }
+        };
+    }
+
+    new Chart(document.getElementById('genderChart'), {
+        type: 'pie',
+        data: {
+            labels: <?= json_encode($genderLabels) ?>,
+            datasets: [{ data: <?= json_encode($genderData) ?>, backgroundColor: palette, borderWidth: 0 }]
+        },
+        options: pieOpts()
+    });
+
+    new Chart(document.getElementById('formatChart'), {
+        type: 'pie',
+        data: {
+            labels: <?= json_encode($formatLabels) ?>,
+            datasets: [{ data: <?= json_encode($formatData) ?>, backgroundColor: palette, borderWidth: 0 }]
+        },
+        options: pieOpts()
+    });
+
+    new Chart(document.getElementById('statusChart'), {
+        type: 'doughnut',
+        data: {
+            labels: <?= json_encode($statusLabels) ?>,
+            datasets: [{ data: <?= json_encode($statusData) ?>, backgroundColor: palette, borderWidth: 0 }]
+        },
+        options: pieOpts()
+    });
+
+    new Chart(document.getElementById('winLossChart'), {
+        type: 'doughnut',
+        data: {
+            labels: ['Wins', 'Losses'],
+            datasets: [{ data: [<?= (int) $totalWins ?>, <?= (int) $totalLosses ?>], backgroundColor: ['#10b981', '#ef4444'], borderWidth: 0 }]
+        },
+        options: pieOpts()
+    });
+});
+</script>
 
 <?php require_once __DIR__ . '/../includes/footer.php'; ?>

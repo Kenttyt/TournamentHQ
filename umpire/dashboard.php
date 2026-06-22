@@ -145,11 +145,61 @@ require_once __DIR__ . '/../includes/header.php';
         </div>
     </div>
 
-    <div class="card">
-        <div class="card-body" style="padding: 20px 10px;">
-            <?php include __DIR__ . '/../includes/bracket_view.php'; ?>
+    <div class="card mb-24">
+        <div class="card-header" id="umpireGroupHeader" style="cursor: pointer; user-select: none; transition: background 0.2s;">
+            <div style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
+                <div class="card-title" style="margin: 0;">Group Stage Brackets</div>
+                <div style="display: flex; align-items: center; gap: 8px; color: var(--text-400); font-size: 12px; font-weight: 500;">
+                    <span id="umpireGroupToggleText">Collapse</span>
+                    <svg id="umpireGroupToggleIcon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="transition: transform 0.3s;"><polyline points="18 15 12 9 6 15"></polyline></svg>
+                </div>
+            </div>
+        </div>
+        <div id="umpireGroupBody" style="transition: max-height 0.4s ease-in-out, opacity 0.2s; max-height: 5000px; overflow: hidden; opacity: 1;">
+            <div class="card-body" id="umpire-group-view" style="padding: 20px 10px;">
+                <?php
+                $recordResultUrl = '/TournamentHQ/umpire/dashboard?tournament_id=' . $tid;
+                $showOnlyPhase = 'group';
+                include __DIR__ . '/../includes/bracket_view.php';
+                ?>
+            </div>
         </div>
     </div>
+
+    <?php
+    $hasKnockoutMatches = false;
+    if (!empty($bracketGroups)) {
+        foreach ($bracketGroups as $group) {
+            if (!preg_match('/^Group [A-Z]/i', $group['label'])) {
+                $hasKnockoutMatches = true;
+                break;
+            }
+        }
+    }
+    ?>
+
+    <?php if ($hasKnockoutMatches): ?>
+    <div class="card">
+        <div class="card-header" id="umpireKnockoutHeader" style="cursor: pointer; user-select: none; transition: background 0.2s;">
+            <div style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
+                <div class="card-title" style="margin: 0;">Knockout Stage Brackets</div>
+                <div style="display: flex; align-items: center; gap: 8px; color: var(--text-400); font-size: 12px; font-weight: 500;">
+                    <span id="umpireKnockoutToggleText">Collapse</span>
+                    <svg id="umpireKnockoutToggleIcon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="transition: transform 0.3s;"><polyline points="18 15 12 9 6 15"></polyline></svg>
+                </div>
+            </div>
+        </div>
+        <div id="umpireKnockoutBody" style="transition: max-height 0.4s ease-in-out, opacity 0.2s; max-height: 5000px; overflow: hidden; opacity: 1;">
+            <div class="card-body" id="umpire-knockout-view" style="padding: 20px 10px;">
+                <?php
+                $recordResultUrl = '/TournamentHQ/umpire/dashboard?tournament_id=' . $tid;
+                $showOnlyPhase = 'knockout';
+                include __DIR__ . '/../includes/bracket_view.php';
+                ?>
+            </div>
+        </div>
+    </div>
+    <?php endif; ?>
 <?php else: ?>
     <div class="empty-state">
         <div class="empty-icon">🏆</div>
@@ -451,5 +501,160 @@ document.querySelector('#bracketResultModal form')?.addEventListener('submit', f
     }
     e.target.submit();
 });
+</script>
+<script>
+(function() {
+    function setupCollapse(headerId, bodyId, textId, iconId, storageKey) {
+        var header = document.getElementById(headerId);
+        var body = document.getElementById(bodyId);
+        var text = document.getElementById(textId);
+        var icon = document.getElementById(iconId);
+        if (!header || !body) return;
+
+        var isCollapsed = localStorage.getItem(storageKey) === 'true';
+        if (isCollapsed) {
+            body.style.maxHeight = '0';
+            body.style.opacity = '0';
+            body.style.display = 'none';
+            if (text) text.textContent = 'Expand';
+            if (icon) icon.style.transform = 'rotate(-180deg)';
+        }
+
+        header.addEventListener('mouseenter', function() { header.style.background = 'rgba(255,255,255,0.03)'; });
+        header.addEventListener('mouseleave', function() { header.style.background = ''; });
+
+        header.addEventListener('click', function() {
+            var collapsed = body.style.maxHeight === '0px' || body.style.display === 'none';
+            if (collapsed) {
+                body.style.display = '';
+                body.style.maxHeight = '5000px';
+                body.style.opacity = '1';
+                if (text) text.textContent = 'Collapse';
+                if (icon) icon.style.transform = 'rotate(0deg)';
+                localStorage.setItem(storageKey, 'false');
+            } else {
+                body.style.maxHeight = '0';
+                body.style.opacity = '0';
+                setTimeout(function() { body.style.display = 'none'; }, 400);
+                if (text) text.textContent = 'Expand';
+                if (icon) icon.style.transform = 'rotate(-180deg)';
+                localStorage.setItem(storageKey, 'true');
+            }
+        });
+    }
+
+    setupCollapse('umpireGroupHeader', 'umpireGroupBody', 'umpireGroupToggleText', 'umpireGroupToggleIcon', 'umpire_group_collapsed');
+    setupCollapse('umpireKnockoutHeader', 'umpireKnockoutBody', 'umpireKnockoutToggleText', 'umpireKnockoutToggleIcon', 'umpire_knockout_collapsed');
+
+    var TOURNAMENT_ID = <?= (int)$tid ?>;
+    if (!TOURNAMENT_ID || window.__umpireSse) return;
+
+    var POLL_INTERVAL = 2000;
+    var pollTimer = null;
+    var lastTs = -1;
+    var isRefreshing = false;
+
+    function createStatusDot() {
+        var header = document.getElementById('umpireGroupHeader');
+        if (!header || document.getElementById('ws-status-dot')) return;
+        var dot = document.createElement('span');
+        dot.id = 'ws-status-dot';
+        dot.title = 'Live updates active';
+        dot.style.cssText = 'display:inline-block;width:8px;height:8px;border-radius:50%;background:#00d4aa;margin-left:8px;vertical-align:middle;transition:background 0.3s;';
+        var wrapper = header.querySelector('div');
+        if (wrapper) wrapper.appendChild(dot);
+    }
+
+    function setStatus(color, title) {
+        var dot = document.getElementById('ws-status-dot');
+        if (dot) { dot.style.background = color; dot.title = title; }
+    }
+
+    function refreshBrackets() {
+        if (isRefreshing) return;
+        isRefreshing = true;
+        setStatus('#f0ad4e', 'Updating...');
+
+        var baseUrl = '/TournamentHQ/includes/bracket_view_ajax.php?tournament_id=' + TOURNAMENT_ID + '&record_result_url=' + encodeURIComponent('/TournamentHQ/umpire/dashboard?tournament_id=' + TOURNAMENT_ID) + '&_=';
+        var ts = Date.now();
+        var pending = 0;
+        var updated = false;
+
+        var groupContainer = document.getElementById('umpire-group-view');
+        var knockoutContainer = document.getElementById('umpire-knockout-view');
+
+        function onPhaseDone() {
+            pending--;
+            if (pending <= 0) {
+                isRefreshing = false;
+                if (typeof window.drawBracketLines === 'function') window.drawBracketLines();
+                if (typeof adjustGridColumns === 'function') adjustGridColumns();
+                setStatus(updated ? '#00d4aa' : '#f0ad4e', updated ? 'Live updates active' : 'Update failed');
+            }
+        }
+
+        function replaceHTML(container, html) {
+            if (!container || !html.trim()) { onPhaseDone(); return; }
+            container.innerHTML = html;
+            var scripts = container.querySelectorAll('script');
+            scripts.forEach(function(old) {
+                var s = document.createElement('script');
+                if (old.src) s.src = old.src; else s.textContent = old.textContent;
+                old.parentNode.replaceChild(s, old);
+            });
+            updated = true;
+            onPhaseDone();
+        }
+
+        pending++;
+        var xhrGroup = new XMLHttpRequest();
+        xhrGroup.open('GET', baseUrl + ts + '&phase=group', true);
+        xhrGroup.onload = function() {
+            replaceHTML(groupContainer, xhrGroup.status === 200 ? xhrGroup.responseText : '');
+        };
+        xhrGroup.onerror = function() { replaceHTML(groupContainer, ''); };
+        xhrGroup.send();
+
+        if (knockoutContainer) {
+            pending++;
+            var xhrKO = new XMLHttpRequest();
+            xhrKO.open('GET', baseUrl + ts + '&phase=knockout', true);
+            xhrKO.onload = function() {
+                replaceHTML(knockoutContainer, xhrKO.status === 200 ? xhrKO.responseText : '');
+            };
+            xhrKO.onerror = function() { replaceHTML(knockoutContainer, ''); };
+            xhrKO.send();
+        }
+    }
+
+    function poll() {
+        var xhr = new XMLHttpRequest();
+        xhr.open('GET', '/TournamentHQ/includes/match_timestamp.php?tournament_id=' + TOURNAMENT_ID + '&_=' + Date.now(), true);
+        xhr.onload = function() {
+            if (xhr.status === 200) {
+                try {
+                    var data = JSON.parse(xhr.responseText);
+                    var ts = parseFloat(data.timestamp) || 0;
+                    if (lastTs === -1) {
+                        lastTs = ts;
+                        createStatusDot();
+                        setStatus('#00d4aa', 'Live updates active');
+                        return;
+                    }
+                    if (ts > lastTs) {
+                        lastTs = ts;
+                        refreshBrackets();
+                    }
+                } catch(e) {}
+            }
+        };
+        xhr.send();
+    }
+
+    poll();
+    pollTimer = setInterval(poll, POLL_INTERVAL);
+
+    window.__umpireSse = true;
+})();
 </script>
 <?php require_once __DIR__ . '/../includes/footer.php'; ?>

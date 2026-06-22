@@ -52,7 +52,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $result = loginUser($loginUsername, $password);
                     if ($result['success']) {
                         if ($roleParam === 'organizer' && !in_array($result['role'], ['organizer', 'admin'], true)) {
-                            // User tried logging in as a player but clicked organize login
                             $_SESSION = [];
                             if (ini_get('session.use_cookies')) {
                                 $params = session_get_cookie_params();
@@ -64,6 +63,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             session_destroy();
                             session_start();
                             $loginError = 'This login is for Organizer accounts only. Please use the Player login.';
+                        } elseif ($roleParam !== 'organizer' && in_array($result['role'], ['organizer', 'admin'])) {
+                            $_SESSION = [];
+                            if (ini_get('session.use_cookies')) {
+                                $params = session_get_cookie_params();
+                                setcookie(session_name(), '', time() - 42000,
+                                    $params['path'], $params['domain'],
+                                    $params['secure'], $params['httponly']
+                                );
+                            }
+                            session_destroy();
+                            session_start();
+                            $loginError = 'This login is for Player accounts only. Please use the Organizer login.';
                         } elseif ($result['role'] === 'umpire') {
                             // strictly block umpires from logging in as players/organizers
                             $_SESSION = [];

@@ -753,7 +753,7 @@ if (empty($bracketGroups)): ?>
                 return r.top + (r.height / 2) - cRect.top + sT;
             }
 
-            function drawBracketLines() {
+            window.drawBracketLines = function drawBracketLines() {
                 var ids = ['<?= e($koTreeId) ?>', '<?= e($losersTreeId) ?>'];
                 ids.forEach(function(cid) {
                     var container = document.getElementById(cid);
@@ -978,6 +978,95 @@ if (empty($bracketGroups)): ?>
     // Run on load and after DOM updates
     document.addEventListener('DOMContentLoaded', adjustGridColumns);
     window.addEventListener('load', adjustGridColumns);
+    </script>
+    <?php endif; ?>
+
+    <?php if (!empty($tid) && ($viewPhase ?? 'all') === 'all'): ?>
+    <script>
+    (function() {
+        var TOURNAMENT_ID = <?= (int)$tid ?>;
+        if (!TOURNAMENT_ID) return;
+        if (window.__sse) return;
+
+        var POLL_INTERVAL = 2000;
+        var pollTimer = null;
+        var lastTs = -1;
+
+        function getBracketBody() {
+            return document.getElementById('bracket-view-body')
+                || document.getElementById('knockout-view-body')
+                || document.getElementById('knockoutBracketCardBody')
+                || document.querySelector('.card-body');
+        }
+
+        function createStatusDot() {
+            var cardHeader = document.querySelector('.card-header');
+            if (!cardHeader || document.getElementById('ws-status-dot')) return;
+            var dot = document.createElement('span');
+            dot.id = 'ws-status-dot';
+            dot.title = 'Live updates active';
+            dot.style.cssText = 'display:inline-block;width:8px;height:8px;border-radius:50%;background:#00d4aa;margin-left:8px;vertical-align:middle;transition:background 0.3s;';
+            cardHeader.appendChild(dot);
+        }
+
+        function setStatus(color, title) {
+            var dot = document.getElementById('ws-status-dot');
+            if (dot) { dot.style.background = color; dot.title = title; }
+        }
+
+        function refreshBracket() {
+            var body = getBracketBody();
+            if (!body) return;
+            var xhr = new XMLHttpRequest();
+            xhr.open('GET', '/TournamentHQ/includes/bracket_view_ajax.php?tournament_id=' + TOURNAMENT_ID + '&_=' + Date.now(), true);
+            xhr.onload = function() {
+                if (xhr.status === 200 && xhr.responseText.trim()) {
+                    var temp = document.createElement('div');
+                    temp.innerHTML = xhr.responseText;
+                    body.innerHTML = '';
+                    while (temp.firstChild) {
+                        body.appendChild(temp.firstChild);
+                    }
+                    if (typeof window.drawBracketLines === 'function') window.drawBracketLines();
+                    if (typeof adjustGridColumns === 'function') adjustGridColumns();
+                }
+            };
+            xhr.send();
+        }
+
+        function poll() {
+            var xhr = new XMLHttpRequest();
+            xhr.open('GET', '/TournamentHQ/includes/match_timestamp.php?tournament_id=' + TOURNAMENT_ID + '&_=' + Date.now(), true);
+            xhr.onload = function() {
+                if (xhr.status === 200) {
+                    try {
+                        var data = JSON.parse(xhr.responseText);
+                        var ts = parseFloat(data.timestamp) || 0;
+                        if (lastTs === -1) {
+                            lastTs = ts;
+                            setStatus('#00d4aa', 'Live updates active');
+                            return;
+                        }
+                        if (ts > lastTs) {
+                            lastTs = ts;
+                            refreshBracket();
+                        }
+                    } catch(e) {}
+                }
+            };
+            xhr.send();
+        }
+
+        function startPolling() {
+            poll();
+            pollTimer = setInterval(poll, POLL_INTERVAL);
+        }
+
+        createStatusDot();
+        startPolling();
+
+        window.__sse = { tid: TOURNAMENT_ID };
+    })();
     </script>
     <?php endif; ?>
 
