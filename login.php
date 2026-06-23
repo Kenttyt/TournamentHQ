@@ -29,7 +29,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $rateLimit = checkRateLimit($clientIp);
 
             if (!$rateLimit['allowed']) {
-                $loginError = 'Too many failed login attempts. Please try again in ' . ceil($rateLimit['retry_after'] / 60) . ' minute(s).';
+                $minutes = ceil($rateLimit['retry_after'] / 60);
+                $loginError = 'Too many failed login attempts. Please try again in ' . $minutes . ' minute(s).';
             } elseif ($roleParam === 'umpire') {
                 $accessCode = trim($_POST['access_code'] ?? '');
                 if (empty($accessCode)) {

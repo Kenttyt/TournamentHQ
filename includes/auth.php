@@ -205,30 +205,63 @@ function getRateLimitKey(string $identifier): string {
     return getRateLimitDir() . '/login_' . md5($identifier) . '.json';
 }
 
-function checkRateLimit(string $identifier, int $maxAttempts = 5, int $windowSeconds = 900): array {
+function checkRateLimit(string $identifier): array {
     $file = getRateLimitKey($identifier);
     $now = time();
 
     if (!file_exists($file)) {
-        return ['allowed' => true, 'remaining' => $maxAttempts, 'retry_after' => 0];
+        return ['allowed' => true, 'remaining' => 5, 'retry_after' => 0];
     }
 
     $data = json_decode(file_get_contents($file), true);
     if (!$data || !isset($data['attempts'])) {
-        return ['allowed' => true, 'remaining' => $maxAttempts, 'retry_after' => 0];
+        return ['allowed' => true, 'remaining' => 5, 'retry_after' => 0];
     }
 
-    // Remove expired attempts
-    $data['attempts'] = array_filter($data['attempts'], fn($ts) => $ts > $now - $windowSeconds);
+    // Escalating tiers: 5 attempts -> 5min, 10 -> 10min, 15 -> 20min
+    $tiers = [
+        ['max' => 5,  'window' => 300],  // 5 min
+        ['max' => 10, 'window' => 600],  // 10 min
+        ['max' => 15, 'window' => 1200], // 20 min
+    ];
+
+    // Remove attempts older than the longest tier window
+    $data['attempts'] = array_filter($data['attempts'], fn($ts) => $ts > $now - 1200);
     $count = count($data['attempts']);
 
-    if ($count >= $maxAttempts) {
-        $oldest = min($data['attempts']);
-        $retryAfter = $oldest + $windowSeconds - $now;
-        return ['allowed' => false, 'remaining' => 0, 'retry_after' => max(1, $retryAfter)];
+    // Find which tier applies (highest tier that the count has reached)
+    $applicableTier = null;
+    foreach ($tiers as $tier) {
+        if ($count >= $tier['max']) {
+            $applicableTier = $tier;
+        }
     }
 
-    return ['allowed' => true, 'remaining' => $maxAttempts - $count, 'retry_after' => 0];
+    if ($applicableTier) {
+        $oldest = min($data['attempts']);
+        $retryAfter = $oldest + $applicableTier['window'] - $now;
+        if ($retryAfter > 0) {
+            $nextTier = null;
+            foreach ($tiers as $tier) {
+                if ($tier['max'] > $count) {
+                    $nextTier = $tier;
+                    break;
+                }
+            }
+            return ['allowed' => false, 'remaining' => 0, 'retry_after' => max(1, $retryAfter)];
+        }
+    }
+
+    // Determine remaining attempts to next tier
+    $remaining = 5;
+    foreach ($tiers as $tier) {
+        if ($count < $tier['max']) {
+            $remaining = $tier['max'] - $count;
+            break;
+        }
+    }
+
+    return ['allowed' => true, 'remaining' => $remaining, 'retry_after' => 0];
 }
 
 function recordFailedLogin(string $identifier): void {
