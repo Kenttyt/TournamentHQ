@@ -637,11 +637,6 @@ function buildBracketGroups(int $tournamentId): array {
     return $groups;
 }
 
-/** @deprecated Use buildBracketGroups */
-function buildBracketRounds(int $tournamentId): array {
-    return buildBracketGroups($tournamentId);
-}
-
 function swapBracketParticipants(int $tournamentId, int $match1Id, int $slot1, int $match2Id, int $slot2): bool {
     $m1 = getMatchById($match1Id);
     $m2 = getMatchById($match2Id);

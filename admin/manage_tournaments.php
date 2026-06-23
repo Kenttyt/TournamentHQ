@@ -9,6 +9,11 @@ require_once __DIR__ . '/../modules/tournaments/tournament_functions.php';
 require_once __DIR__ . '/../modules/players/player_functions.php';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if (!validateCsrfToken()) {
+        setFlash('error', 'Invalid request. Please try again.');
+        header('Location: manage_tournaments.php');
+        exit;
+    }
     $action = $_POST['action'] ?? '';
 
     if ($action === 'create') {
@@ -240,6 +245,7 @@ require_once __DIR__ . '/../includes/header.php';
             <form method="POST" style="display:inline">
                 <input type="hidden" name="action" value="delete">
                 <input type="hidden" name="tournament_id" value="<?= $t['id'] ?>">
+                <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
                 <button type="submit" class="btn btn-danger btn-sm" data-confirm="Delete '<?= e($t['name']) ?>'?">
                     <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
                 </button>
@@ -260,6 +266,7 @@ require_once __DIR__ . '/../includes/header.php';
         </div>
         <form method="POST">
             <input type="hidden" name="action" value="create">
+            <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
             <div class="modal-body">
                 <div class="form-row">
                     <div class="form-group" style="flex:2">
@@ -357,6 +364,7 @@ require_once __DIR__ . '/../includes/header.php';
         <form method="POST">
             <input type="hidden" name="action" value="edit">
             <input type="hidden" name="tournament_id" id="etId">
+            <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
             <div class="modal-body">
                 <div class="form-group">
                     <label class="form-label">Tournament Name *</label>
@@ -471,6 +479,7 @@ require_once __DIR__ . '/../includes/header.php';
         <form method="POST">
             <input type="hidden" name="action" value="register">
             <input type="hidden" name="tournament_id" id="regTournamentId">
+            <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
             <div class="modal-body">
                 <p class="text-muted text-sm mb-16" id="regTournamentName"></p>
                 <div class="form-row">

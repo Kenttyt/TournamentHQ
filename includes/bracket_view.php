@@ -879,6 +879,7 @@ if (empty($bracketGroups)): ?>
             <form method="POST" action="<?= e($recordResultUrl) ?>">
                 <input type="hidden" name="action" value="swap_slots">
                 <input type="hidden" name="tournament_id" value="<?= $tid ?>">
+                <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
                 <input type="hidden" name="match1_id" id="swapMatch1Id">
                 <input type="hidden" name="slot1" id="swapSlot1">
                 <div class="modal-body">

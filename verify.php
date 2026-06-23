@@ -45,7 +45,8 @@ try {
     header('Location: /TournamentHQ/login.php');
     exit;
 } catch (Exception $e) {
-    setFlash('error', 'Verification failed: ' . $e->getMessage());
+    error_log('TournamentHQ Verification Error: ' . $e->getMessage());
+    setFlash('error', 'Verification failed. Please try again.');
     header('Location: /TournamentHQ/login.php');
     exit;
 }

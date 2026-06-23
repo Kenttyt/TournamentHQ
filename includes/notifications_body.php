@@ -22,6 +22,7 @@ $emptyHint = $role === 'organizer'
         <?php if ($notificationCount > 0): ?>
         <form method="POST" action="">
             <input type="hidden" name="action" value="mark_all_read">
+            <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
             <button type="submit" class="btn btn-outline btn-sm">Mark all as read</button>
         </form>
         <?php endif; ?>

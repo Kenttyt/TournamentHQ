@@ -16,15 +16,20 @@ $messageType = 'info';
 $devLink = null;
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $input = trim($_POST['email_or_username'] ?? '');
-    if ($input === '') {
-        $message = 'Please enter your email or username.';
+    if (!validateCsrfToken()) {
         $messageType = 'danger';
+        $message = 'Invalid request. Please try again.';
     } else {
-        $result = requestPasswordReset($input);
-        $message = $result['message'];
-        $messageType = 'success';
-        $devLink = $result['dev_link'] ?? null;
+        $input = trim($_POST['email_or_username'] ?? '');
+        if ($input === '') {
+            $message = 'Please enter your email or username.';
+            $messageType = 'danger';
+        } else {
+            $result = requestPasswordReset($input);
+            $message = $result['message'];
+            $messageType = 'success';
+            $devLink = $result['dev_link'] ?? null;
+        }
     }
 }
 
@@ -53,8 +58,7 @@ if ($message): ?>
 
 <?php if ($messageType !== 'success'): ?>
 <form method="POST" action="">
-    <div class="form-group">
-        <label class="form-label" for="email_or_username">Email or username</label>
+    <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
         <div class="input-wrap">
             <i data-lucide="mail" class="input-icon"></i>
             <input type="text" id="email_or_username" name="email_or_username" class="form-control"

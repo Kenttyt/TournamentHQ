@@ -17,19 +17,23 @@ $success = false;
 $validToken = $token !== '' && getPasswordResetUserId($token) !== null;
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $password = $_POST['password'] ?? '';
-    $confirm  = $_POST['confirm_password'] ?? '';
-    if ($password !== $confirm) {
-        $error = 'Passwords do not match.';
+    if (!validateCsrfToken()) {
+        $error = 'Invalid request. Please try again.';
     } else {
-        $result = completePasswordReset($token, $password);
-        if ($result['ok']) {
-            setFlash('success', $result['message']);
-            header('Location: /TournamentHQ/index.php');
-            exit;
+        $password = $_POST['password'] ?? '';
+        $confirm  = $_POST['confirm_password'] ?? '';
+        if ($password !== $confirm) {
+            $error = 'Passwords do not match.';
+        } else {
+            $result = completePasswordReset($token, $password);
+            if ($result['ok']) {
+                setFlash('success', $result['message']);
+                header('Location: /TournamentHQ/index.php');
+                exit;
+            }
+            $error = $result['message'];
+            $validToken = getPasswordResetUserId($token) !== null;
         }
-        $error = $result['message'];
-        $validToken = getPasswordResetUserId($token) !== null;
     }
 }
 
@@ -57,6 +61,7 @@ if ($error): ?>
 
 <form method="POST" action="">
     <input type="hidden" name="token" value="<?= e($token) ?>">
+    <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
     <div class="form-group">
         <label class="form-label" for="password">New password</label>
         <input type="password" id="password" name="password" class="form-control" minlength="6" required placeholder="Min. 6 characters">

@@ -717,24 +717,6 @@ function getTournamentEntrants(int $tournamentId): array {
 }
 
 /**
- * Get recently approved guest registrations that have no payment proof uploaded.
- * Used for organizer history views.
- */
-function getApprovedGuestsWithoutPaymentProof(int $limit = 6): array {
-    $stmt = db()->prepare(
-        "SELECT tg.*, p.first_name AS submitter_first, p.last_name AS submitter_last, t.name AS tournament_name
-         FROM tournament_guests tg
-         LEFT JOIN players p ON tg.registered_by_player_id = p.id
-         LEFT JOIN tournaments t ON tg.tournament_id = t.id
-         WHERE tg.registration_status = 'approved' AND (tg.payment_proof_path IS NULL OR tg.payment_proof_path = '')
-         ORDER BY tg.created_at DESC
-         LIMIT ?"
-    );
-    $stmt->execute([$limit]);
-    return $stmt->fetchAll();
-}
-
-/**
  * Get recent approved registrations (players and guests) with tournament info.
  * Returns unified rows with fields: type ('player'|'guest'), entity_id, first_name, last_name,
  * tournament_id, tournament_name, submitter_first, submitter_last, ts

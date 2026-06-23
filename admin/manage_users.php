@@ -9,6 +9,11 @@ require_once __DIR__ . '/../config/database.php';
 
 // Handle actions
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if (!validateCsrfToken()) {
+        setFlash('error', 'Invalid request. Please try again.');
+        header('Location: manage_users.php');
+        exit;
+    }
     $action = $_POST['action'] ?? '';
 
     if ($action === 'create') {
@@ -143,12 +148,14 @@ require_once __DIR__ . '/../includes/header.php';
                             <form method="POST" style="display:inline">
                                 <input type="hidden" name="action" value="toggle">
                                 <input type="hidden" name="user_id" value="<?= $u['id'] ?>">
+                                <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
                                 <button type="submit" class="btn btn-outline btn-sm"><?= $u['is_active']?'Disable':'Enable' ?></button>
                             </form>
                             <?php if ($u['id'] != $_SESSION['user_id']): ?>
                             <form method="POST" style="display:inline">
                                 <input type="hidden" name="action" value="delete">
                                 <input type="hidden" name="user_id" value="<?= $u['id'] ?>">
+                                <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
                                 <button type="submit" class="btn btn-danger btn-sm" data-confirm="Delete user '<?= e($u['username']) ?>'? This cannot be undone.">
                                     <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
                                 </button>
@@ -174,6 +181,7 @@ require_once __DIR__ . '/../includes/header.php';
         </div>
         <form method="POST">
             <input type="hidden" name="action" value="create">
+            <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
             <div class="modal-body">
                 <div class="form-row">
                     <div class="form-group">
@@ -216,6 +224,7 @@ require_once __DIR__ . '/../includes/header.php';
         <form method="POST">
             <input type="hidden" name="action" value="edit">
             <input type="hidden" name="user_id" id="editUserId">
+            <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
             <div class="modal-body">
                 <div class="form-group">
                     <label class="form-label">Username</label>

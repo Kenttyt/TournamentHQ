@@ -67,6 +67,7 @@ $entrantLabelPlural = $isTeamEvent ? 'teams' : 'players';
                     <form method="POST" action="<?= e($formAction) ?>" id="groupGenForm" onsubmit="return confirm('Generate new group brackets? Existing scheduled matches for this tournament will be replaced.');">
                         <input type="hidden" name="action" value="generate">
                         <input type="hidden" name="tournament_id" value="<?= $tid ?>">
+                        <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
                         <div style="display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-end; margin-bottom: 16px;">
                             <div class="form-group" style="margin: 0; min-width: 200px;">
                                 <label class="form-label"><?= ucfirst($entrantLabelPlural) ?> per group</label>
@@ -335,6 +336,7 @@ if (!empty($bracketGroups)) {
                 <form method="POST" action="<?= e($formAction) ?>" id="knockoutGenForm" onsubmit="return confirm('Generate knockout bracket? This will fetch Rank 1 & Rank 2 from each group and create matches.');">
                     <input type="hidden" name="action" value="generate_knockout">
                     <input type="hidden" name="tournament_id" value="<?= $tid ?>">
+                    <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
                     <div style="display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-end;">
                         <div class="form-group" style="margin: 0; min-width: 200px;">
                             <label class="form-label">Knockout Format</label>
@@ -554,6 +556,7 @@ if (!empty($bracketGroups)) {
         <form method="POST" action="<?= e($formAction) ?>">
             <input type="hidden" name="action" value="result">
             <input type="hidden" name="tournament_id" value="<?= $tid ?>">
+            <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
             <input type="hidden" name="match_id" id="bracketMatchId">
             <input type="hidden" name="winner_key" id="bracketWinnerKey">
             <div class="modal-body">

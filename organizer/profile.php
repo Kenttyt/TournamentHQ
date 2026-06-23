@@ -19,6 +19,11 @@ $userInfo = $userStmt->fetch();
 $authMethod = $userInfo['auth_method'] ?? 'local';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if (!validateCsrfToken()) {
+        setFlash('error', 'Invalid request. Please try again.');
+        header('Location: profile.php');
+        exit;
+    }
     $action = $_POST['action'] ?? '';
 
     if ($action === 'password') {
@@ -89,10 +94,7 @@ require_once __DIR__ . '/../includes/header.php';
             <?php if ($authMethod === 'google'): ?>
             <form method="POST">
                 <input type="hidden" name="action" value="password">
-                <div class="card-body">
-                    <div class="form-group">
-                        <label class="form-label">New Password</label>
-                        <div class="password-wrapper">
+                <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
                             <input type="password" name="new_password" class="form-control password-field" required minlength="6" placeholder="Min 6 characters">
                             <button type="button" class="toggle-password" aria-label="Toggle password visibility">
                                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="eye-icon"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
@@ -116,10 +118,7 @@ require_once __DIR__ . '/../includes/header.php';
             <?php else: ?>
             <form method="POST">
                 <input type="hidden" name="action" value="password">
-                <div class="card-body">
-                    <div class="form-group">
-                        <label class="form-label">Current Password</label>
-                        <div class="password-wrapper">
+                <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
                             <input type="password" name="current_password" class="form-control password-field" required placeholder="Enter current password">
                             <button type="button" class="toggle-password" aria-label="Toggle password visibility">
                                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="eye-icon"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>

@@ -11,6 +11,12 @@ if (session_status() === PHP_SESSION_NONE) {
     if ($_SERVER['HTTP_HOST'] === 'localhost' || $_SERVER['HTTP_HOST'] === '127.0.0.1') {
         session_name('TTMS_LOCAL');
     }
+    session_set_cookie_params([
+        'lifetime' => 0,
+        'path'     => '/',
+        'httponly'  => true,
+        'samesite' => 'Lax',
+    ]);
     session_start();
 }
 
@@ -136,6 +142,7 @@ function loginUser(string $username, string $password): array {
             $_SESSION['username'] = $user['username'];
             $_SESSION['role']     = $user['role'];
             $_SESSION['email']    = $user['email'];
+            session_regenerate_id(true);
             return ['success' => true, 'role' => $user['role']];
         }
         return ['success' => false, 'message' => 'Invalid username/email or password.'];
@@ -159,6 +166,28 @@ function logoutUser(): void {
     session_destroy();
     header('Location: /TournamentHQ/index.php');
     exit;
+}
+
+/**
+ * CSRF token generation and validation
+ */
+function generateCsrfToken(): string {
+    if (empty($_SESSION['csrf_token'])) {
+        $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+    }
+    return $_SESSION['csrf_token'];
+}
+
+function csrfToken(): string {
+    return generateCsrfToken();
+}
+
+function validateCsrfToken(): bool {
+    $token = $_POST['csrf_token'] ?? '';
+    if (empty($token) || empty($_SESSION['csrf_token'])) {
+        return false;
+    }
+    return hash_equals($_SESSION['csrf_token'], $token);
 }
 
 /**

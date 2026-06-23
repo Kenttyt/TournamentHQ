@@ -76,6 +76,11 @@ require_once __DIR__ . '/../modules/tournaments/bracket_functions.php';
 
 // Handle recording scores
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'result') {
+    if (!validateCsrfToken()) {
+        setFlash('error', 'Invalid request. Please try again.');
+        header('Location: /TournamentHQ/umpire/dashboard?tournament_id=' . $tid);
+        exit;
+    }
     $matchId = (int) ($_POST['match_id'] ?? 0);
     $winnerKey = trim($_POST['winner_key'] ?? '');
     if ($matchId && $winnerKey) {
@@ -218,6 +223,7 @@ require_once __DIR__ . '/../includes/header.php';
         <form method="POST" action="<?= e($formAction) ?>">
             <input type="hidden" name="action" value="result">
             <input type="hidden" name="tournament_id" value="<?= $tid ?>">
+            <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
             <input type="hidden" name="match_id" id="bracketMatchId">
             <input type="hidden" name="winner_key" id="bracketWinnerKey">
             <div class="modal-body">

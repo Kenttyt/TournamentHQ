@@ -12,6 +12,11 @@ $formAction = '/TournamentHQ/admin/bracket_generator.php';
 $tid = (int) ($_GET['tournament_id'] ?? $_POST['tournament_id'] ?? 0);
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if (!validateCsrfToken()) {
+        setFlash('error', 'Invalid request. Please try again.');
+        header('Location: bracket_generator.php');
+        exit;
+    }
     $action = $_POST['action'] ?? '';
     $postTid = (int) ($_POST['tournament_id'] ?? 0);
 

@@ -99,6 +99,7 @@ try {
         $_SESSION['username'] = $user['username'];
         $_SESSION['role'] = $user['role'];
         $_SESSION['email'] = $user['email'];
+        session_regenerate_id(true);
         header('Location: ' . getDashboardUrl($user['role']));
         exit;
     }

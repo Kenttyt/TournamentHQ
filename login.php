@@ -9,6 +9,7 @@ if (isLoggedIn()) {
 }
 
 $loginError = '';
+$loginErrorIsHtml = false;
 $regError = '';
 $loginUsername = '';
 $regUsername = '';
@@ -18,7 +19,9 @@ $activeTab = $isGoogleSignup ? 'register' : 'login';
 $roleParam = $_GET['role'] ?? ($_POST['role_param'] ?? '');
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    if (isset($_POST['form_type'])) {
+    if (!validateCsrfToken()) {
+        $loginError = 'Invalid request. Please try again.';
+    } elseif (isset($_POST['form_type'])) {
         if ($_POST['form_type'] === 'login') {
             $activeTab = 'login';
             
@@ -94,7 +97,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         }
                     } elseif ($result['message'] === 'email_not_verified') {
                         $loginError = 'Your email is not verified. Please check your inbox or <a href="/TournamentHQ/resend-verification.php">resend verification email</a>.';
-                    } else {
+                        $loginErrorIsHtml = true;                    } else {
                         $loginError = $result['message'];
                     }
                 }
@@ -395,12 +398,13 @@ $googleEnabled = isGoogleOAuthConfigured();
                 <div class="<?= $flash['type'] === 'success' ? 'form-success' : ($flash['type'] === 'warning' ? 'form-warning' : 'form-error') ?>"><?= $flash['message'] ?></div>
             <?php endif; ?>
             <?php if ($loginError): ?>
-                <div class="form-error"><?= $loginError ?></div>
+                <div class="form-error"><?= $loginErrorIsHtml ? $loginError : e($loginError) ?></div>
             <?php endif; ?>
 
             <form method="POST" action="/TournamentHQ/login.php">
                 <input type="hidden" name="form_type" value="login">
                 <input type="hidden" name="role_param" value="<?= htmlspecialchars($roleParam) ?>">
+                <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
                 
                 <?php if ($roleParam === 'umpire'): ?>
                 <div class="form-group">
@@ -458,12 +462,13 @@ $googleEnabled = isGoogleOAuthConfigured();
             <p class="lead"><?= $roleParam === 'organizer' ? 'Create events and manage your tournaments' : 'Join the community and start competing' ?></p>
 
             <?php if ($regError): ?>
-                <div class="form-error"><?= $regError ?></div>
+                <div class="form-error"><?= e($regError) ?></div>
             <?php endif; ?>
 
             <form method="POST" action="/TournamentHQ/login.php">
                 <input type="hidden" name="form_type" value="register">
                 <input type="hidden" name="role_param" value="<?= htmlspecialchars($roleParam) ?>">
+                <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
                 <?php if ($isGoogleSignup): ?>
                     <input type="hidden" name="is_google_signup" value="1">
                 <?php endif; ?>

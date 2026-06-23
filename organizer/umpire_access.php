@@ -10,6 +10,11 @@ require_once __DIR__ . '/../modules/tournaments/tournament_functions.php';
 $userId = (int)$_SESSION['user_id'];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if (!validateCsrfToken()) {
+        setFlash('error', 'Invalid request. Please try again.');
+        header('Location: umpire_access.php');
+        exit;
+    }
     $action = $_POST['action'] ?? '';
     $tournamentId = (int)($_POST['tournament_id'] ?? 0);
 
@@ -179,6 +184,7 @@ require_once __DIR__ . '/../includes/header.php';
                                 <form method="POST" style="display:inline-block; margin:0;">
                                     <input type="hidden" name="action" value="generate">
                                     <input type="hidden" name="tournament_id" value="<?= $g['first_id'] ?>">
+                                    <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
                                     <button type="submit" class="btn btn-primary btn-sm">
                                         <?= $currentCode ? 'Regenerate Code' : 'Generate Code' ?>
                                     </button>
@@ -187,6 +193,7 @@ require_once __DIR__ . '/../includes/header.php';
                                     <form method="POST" style="display:inline-block; margin:0;" onsubmit="return confirm('Are you sure you want to revoke umpire access for this tournament?');">
                                         <input type="hidden" name="action" value="revoke">
                                         <input type="hidden" name="tournament_id" value="<?= $g['first_id'] ?>">
+                                        <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
                                         <button type="submit" class="btn btn-outline btn-sm" style="color:#ff6b6b; border-color:rgba(255,107,107,0.3);">
                                             Revoke Access
                                         </button>

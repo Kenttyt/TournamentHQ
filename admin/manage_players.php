@@ -9,6 +9,11 @@ require_once __DIR__ . '/../modules/players/player_functions.php';
 
 // Handle actions
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if (!validateCsrfToken()) {
+        setFlash('error', 'Invalid request. Please try again.');
+        header('Location: manage_players.php');
+        exit;
+    }
     $action = $_POST['action'] ?? '';
 
     if ($action === 'edit') {
@@ -95,6 +100,7 @@ require_once __DIR__ . '/../includes/header.php';
                             <form method="POST" style="display:inline">
                                 <input type="hidden" name="action" value="delete">
                                 <input type="hidden" name="player_id" value="<?= $p['id'] ?>">
+                                <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
                                 <button type="submit" class="btn btn-danger btn-sm"
                                     data-confirm="Delete <?= e($p['first_name'].' '.$p['last_name']) ?>? This cannot be undone.">
                                     <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
@@ -121,6 +127,7 @@ require_once __DIR__ . '/../includes/header.php';
         <form method="POST">
             <input type="hidden" name="action" value="edit">
             <input type="hidden" name="player_id" id="editPlayerId">
+            <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
             <div class="modal-body">
                 <div class="form-row">
                     <div class="form-group">

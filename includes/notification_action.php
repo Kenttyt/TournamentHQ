@@ -14,6 +14,13 @@ if (!isLoggedIn()) {
 }
 
 $userId = (int) $_SESSION['user_id'];
+
+if (!validateCsrfToken()) {
+    http_response_code(403);
+    echo json_encode(['ok' => false, 'error' => 'Invalid request']);
+    exit;
+}
+
 $action = $_POST['action'] ?? '';
 
 if ($action === 'mark_read') {

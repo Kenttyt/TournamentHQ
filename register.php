@@ -17,6 +17,9 @@ $error = '';
 $flash = getFlash();
 $googleEnabled = isGoogleOAuthConfigured();
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if (!validateCsrfToken()) {
+        $error = 'Invalid request. Please try again.';
+    } else {
     $password   = $_POST['password'] ?? '';
     $username   = trim($_POST['username'] ?? '');
     $email      = trim($_POST['email'] ?? '');
@@ -84,9 +87,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (isset($pdo) && $pdo->inTransaction()) {
                 $pdo->rollBack();
             }
-            $error = 'Registration failed: ' . $e->getMessage();
+            $error = 'Registration failed. Please try again.';
         }
     }
+    } // end CSRF validation
 }
 
 ?>
@@ -483,6 +487,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <?php endif; ?>
 
                 <form method="POST" action="" id="registerForm">
+                    <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
                     <div class="form-group">
                         <label class="form-label" for="username">Username *</label>
                         <div class="input-wrap">

@@ -8,6 +8,11 @@ $userId = (int) $_SESSION['user_id'];
 $role = 'player';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'mark_all_read') {
+    if (!validateCsrfToken()) {
+        setFlash('error', 'Invalid request. Please try again.');
+        header('Location: notifications.php');
+        exit;
+    }
     markAllNotificationsRead($userId);
     setFlash('success', 'All notifications marked as read.');
     header('Location: notifications.php');

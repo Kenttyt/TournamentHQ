@@ -12,6 +12,11 @@ require_once __DIR__ . '/../modules/uploads/payment_proof.php';
 $userId = (int)$_SESSION['user_id'];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if (!validateCsrfToken()) {
+        setFlash('error', 'Invalid request. Please try again.');
+        header('Location: tournaments.php');
+        exit;
+    }
     $action = $_POST['action'] ?? '';
 
     if ($action === 'create') {
@@ -334,6 +339,7 @@ function renderTournamentCard(array $t, int $userId): void {
                 <form method="POST" style="display: inline; margin: 0;">
                     <input type="hidden" name="action" value="status">
                     <input type="hidden" name="tournament_id" value="<?= $t['id'] ?>">
+                    <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
                     <select name="status" class="badge badge-<?= e($t['status']) ?>" style="border: 1px solid rgba(255,255,255,0.15); font-family: inherit; font-size: 11px; font-weight: 600; cursor: pointer; outline: none; padding: 4px 10px; height: auto; border-radius: 20px; text-transform: capitalize;" onchange="this.form.submit()">
                         <option value="upcoming"  <?= $t['status']==='upcoming'?'selected':''  ?> style="background: var(--bg-700); color: var(--text-100);">Upcoming</option>
                         <option value="ongoing"   <?= $t['status']==='ongoing'?'selected':''   ?> style="background: var(--bg-700); color: var(--text-100);">Ongoing</option>
@@ -394,6 +400,7 @@ function renderTournamentCard(array $t, int $userId): void {
                                     <input type="hidden" name="tournament_id" value="<?= (int) $t['id'] ?>">
                                     <input type="hidden" name="reg_type" value="guest">
                                     <input type="hidden" name="reg_id" value="<?= (int) $pl['reg_id'] ?>">
+                                    <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
                                     <button type="submit" class="btn btn-primary btn-sm" style="padding:4px 10px;font-size:11px;height:auto">Approve</button>
                                 </form>
                                 <form method="POST" style="display:inline">
@@ -401,6 +408,7 @@ function renderTournamentCard(array $t, int $userId): void {
                                     <input type="hidden" name="tournament_id" value="<?= (int) $t['id'] ?>">
                                     <input type="hidden" name="reg_type" value="guest">
                                     <input type="hidden" name="reg_id" value="<?= (int) $pl['reg_id'] ?>">
+                                    <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
                                     <button type="submit" class="btn btn-outline btn-sm" style="padding:4px 10px;font-size:11px;height:auto" data-confirm="Decline this player?">Decline</button>
                                 </form>
                             </div>
@@ -420,6 +428,7 @@ function renderTournamentCard(array $t, int $userId): void {
                             <input type="hidden" name="tournament_id" value="<?= (int) $t['id'] ?>">
                             <input type="hidden" name="reg_type" value="player">
                             <input type="hidden" name="reg_id" value="<?= (int) $pr['reg_id'] ?>">
+                            <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
                             <button type="submit" class="btn btn-primary btn-sm" style="padding:4px 10px;font-size:11px;height:auto">Approve</button>
                         </form>
                         <form method="POST" style="display:inline">
@@ -427,6 +436,7 @@ function renderTournamentCard(array $t, int $userId): void {
                             <input type="hidden" name="tournament_id" value="<?= (int) $t['id'] ?>">
                             <input type="hidden" name="reg_type" value="player">
                             <input type="hidden" name="reg_id" value="<?= (int) $pr['reg_id'] ?>">
+                            <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
                             <button type="submit" class="btn btn-outline btn-sm" style="padding:4px 10px;font-size:11px;height:auto" data-confirm="Decline this registration request?">Decline</button>
                         </form>
                     </div>
@@ -454,6 +464,7 @@ function renderTournamentCard(array $t, int $userId): void {
                         <input type="hidden" name="tournament_id" value="<?= (int) $t['id'] ?>">
                         <input type="hidden" name="reg_type" value="player">
                         <input type="hidden" name="reg_id" value="<?= (int) $tp['id'] ?>">
+                        <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
                         <button type="submit" class="btn btn-outline btn-xs" style="padding:5px 9px;font-size:11px;height:auto;line-height:1" data-confirm="Remove <?= e($tp['first_name'].' '.$tp['last_name']) ?> from this tournament?" <?= $isCompletedTournament ? 'disabled title="Cannot remove players from a completed tournament." style="opacity:0.5;cursor:not-allowed;"' : '' ?>>Remove</button>
                     </form>
                 </div>
@@ -471,6 +482,7 @@ function renderTournamentCard(array $t, int $userId): void {
                         <input type="hidden" name="tournament_id" value="<?= (int) $t['id'] ?>">
                         <input type="hidden" name="reg_type" value="guest">
                         <input type="hidden" name="reg_id" value="<?= (int) $tg['id'] ?>">
+                        <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
                         <button type="submit" class="btn btn-outline btn-xs" style="padding:5px 9px;font-size:11px;height:auto;line-height:1" data-confirm="Remove <?= e($tg['first_name'].' '.$tg['last_name']) ?> from this tournament?" <?= $isCompletedTournament ? 'disabled title="Cannot remove players from a completed tournament." style="opacity:0.5;cursor:not-allowed;"' : '' ?>>Remove</button>
                     </form>
                 </div>
@@ -493,6 +505,7 @@ function renderTournamentCard(array $t, int $userId): void {
                     <form method="POST" style="display:inline; margin: 0;">
                         <input type="hidden" name="action" value="start_bracketing">
                         <input type="hidden" name="tournament_id" value="<?= (int) $t['id'] ?>">
+                        <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
                         <button type="submit" class="btn btn-primary btn-sm" title="Start bracketing and view bracket">Check Bracket</button>
                     </form>
                 <?php else: ?>
@@ -572,10 +585,7 @@ require_once __DIR__ . '/../includes/header.php';
         </div>
         <form method="POST">
             <input type="hidden" name="action" value="create">
-            <div class="modal-body">
-                <div class="form-row">
-                    <div class="form-group" style="flex:2">
-                        <label class="form-label">Tournament Name *</label>
+            <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
                         <input type="text" name="name" class="form-control" required placeholder="Tournament name">
                     </div>
                     <div class="form-group" style="flex:1">
@@ -661,6 +671,7 @@ require_once __DIR__ . '/../includes/header.php';
         <form method="POST" id="orgRegisterForm">
             <input type="hidden" name="action" value="register">
             <input type="hidden" name="tournament_id" id="regTId">
+            <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
             <div class="modal-body">
                 <p class="text-muted text-sm mb-16" id="regTName"></p>
                 <p class="text-xs" style="margin-bottom: 12px; color: var(--accent); font-weight: 600;" id="regSlotsInfo"></p>
@@ -700,6 +711,7 @@ require_once __DIR__ . '/../includes/header.php';
         <form method="POST" id="editTournamentForm">
             <input type="hidden" name="action" value="edit">
             <input type="hidden" name="tournament_id" id="etId">
+            <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
             <div class="modal-body">
                 <div class="form-group">
                     <label class="form-label">Tournament Name *</label>
@@ -759,6 +771,7 @@ require_once __DIR__ . '/../includes/header.php';
             <form method="POST" style="display: inline; margin: 0;" onsubmit="return confirm('Delete this tournament? This cannot be undone. All registrations and matches will be deleted.');">
                 <input type="hidden" name="action" value="delete">
                 <input type="hidden" name="tournament_id" id="etDeleteId">
+                <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
                 <button type="submit" class="btn btn-danger btn-sm" style="padding: 6px 14px; font-size: 12px; display: inline-flex; align-items: center; gap: 6px;">
                     <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
                     Delete Tournament

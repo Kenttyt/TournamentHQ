@@ -32,7 +32,9 @@ class Database {
                 self::runMigrations(self::$instance);
                 self::ensureDefaultAdminUser(self::$instance);
             } catch (PDOException $e) {
-                die(json_encode(['error' => 'Database connection failed: ' . $e->getMessage()]));
+                error_log('TournamentHQ DB Error: ' . $e->getMessage());
+                http_response_code(500);
+                die(json_encode(['error' => 'Service temporarily unavailable.']));
             }
         }
         return self::$instance;

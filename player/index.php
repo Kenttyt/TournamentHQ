@@ -26,6 +26,11 @@ $userEmail = $stmt->fetchColumn();
 $emailMissing = empty($userEmail);
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if (!validateCsrfToken()) {
+        setFlash('error', 'Invalid request. Please try again.');
+        header('Location: index.php');
+        exit;
+    }
     $action = $_POST['action'] ?? '';
     if (in_array($action, ['join', 'leave'], true) && $playerId <= 0) {
         setFlash('danger', 'Your player profile is not set up. Please contact an admin before joining tournaments.');
@@ -42,6 +47,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && $playerId > 0) {
+    if (!validateCsrfToken()) {
+        setFlash('error', 'Invalid request. Please try again.');
+        header('Location: index.php');
+        exit;
+    }
     $action = $_POST['action'] ?? '';
     if ($action === 'join') {
         $tid = (int)($_POST['tournament_id'] ?? 0);
@@ -338,6 +348,7 @@ require_once __DIR__ . '/../includes/header.php';
                                                 <form method="POST" style="display: inline;" onsubmit="return confirm('Are you sure you want to leave this tournament?');">
                                                     <input type="hidden" name="action" value="leave">
                                                     <input type="hidden" name="tournament_id" value="<?= $t['id'] ?>">
+                                                    <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
                                                     <button type="submit" class="btn btn-danger btn-sm" style="padding: 5px 10px; height: auto; font-size: 11px;">Leave</button>
                                                 </form>
                                             <?php endif; ?>
@@ -488,6 +499,7 @@ require_once __DIR__ . '/../includes/header.php';
         <form method="POST" id="joinForm" action="index.php" enctype="multipart/form-data">
             <input type="hidden" name="action" value="join">
             <input type="hidden" name="tournament_id" id="joinTId">
+            <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
             <div class="modal-body">
                 <div style="background: rgba(108, 99, 255, 0.08); border: 1px solid rgba(108, 99, 255, 0.2); border-radius: var(--radius-sm); padding: 14px 18px; margin-bottom: 20px;">
                     <h4 style="margin: 0; color: var(--primary-light); font-size: 15px; font-weight: 700;" id="joinTName">Tournament Name</h4>

@@ -10,6 +10,10 @@ $message = '';
 $messageType = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if (!validateCsrfToken()) {
+        $messageType = 'danger';
+        $message = 'Invalid request. Please try again.';
+    } else {
     $email = trim($_POST['email'] ?? '');
 
     if (!$email) {
@@ -52,10 +56,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
             }
         } catch (Exception $e) {
+            error_log('TournamentHQ Resend Verification Error: ' . $e->getMessage());
             $messageType = 'danger';
-            $message = 'An error occurred: ' . $e->getMessage();
+            $message = 'An error occurred. Please try again.';
         }
     }
+    } // end CSRF validation
 }
 ?>
 <!DOCTYPE html>
@@ -275,8 +281,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <?php endif; ?>
 
             <form method="POST">
-                <div class="form-group">
-                    <label for="email">Email Address</label>
+                <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
                     <input
                         type="email"
                         id="email"
