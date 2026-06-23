@@ -24,8 +24,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } elseif (isset($_POST['form_type'])) {
         if ($_POST['form_type'] === 'login') {
             $activeTab = 'login';
-            
-            if ($roleParam === 'umpire') {
+
+            $clientIp = $_SERVER['REMOTE_ADDR'] ?? '127.0.0.1';
+            $rateLimit = checkRateLimit($clientIp);
+
+            if (!$rateLimit['allowed']) {
+                $loginError = 'Too many failed login attempts. Please try again in ' . ceil($rateLimit['retry_after'] / 60) . ' minute(s).';
+            } elseif ($roleParam === 'umpire') {
                 $accessCode = trim($_POST['access_code'] ?? '');
                 if (empty($accessCode)) {
                     $loginError = 'Please enter the access code.';
@@ -43,6 +48,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         exit;
                     } else {
                         $loginError = 'Invalid or expired access code.';
+                        recordFailedLogin($clientIp);
                     }
                 }
             } else {
@@ -54,6 +60,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 } else {
                     $result = loginUser($loginUsername, $password);
                     if ($result['success']) {
+                        clearRateLimit($clientIp);
                         if ($roleParam === 'organizer' && !in_array($result['role'], ['organizer', 'admin'], true)) {
                             $_SESSION = [];
                             if (ini_get('session.use_cookies')) {
@@ -97,8 +104,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         }
                     } elseif ($result['message'] === 'email_not_verified') {
                         $loginError = 'Your email is not verified. Please check your inbox or <a href="/TournamentHQ/resend-verification.php">resend verification email</a>.';
-                        $loginErrorIsHtml = true;                    } else {
+                        $loginErrorIsHtml = true;
+                    } else {
                         $loginError = $result['message'];
+                        recordFailedLogin($clientIp);
                     }
                 }
             }

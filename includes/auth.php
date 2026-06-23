@@ -191,6 +191,71 @@ function validateCsrfToken(): bool {
 }
 
 /**
+ * Rate limiting for login attempts (file-based)
+ */
+function getRateLimitDir(): string {
+    $dir = __DIR__ . '/../var/ratelimit';
+    if (!is_dir($dir)) {
+        mkdir($dir, 0755, true);
+    }
+    return $dir;
+}
+
+function getRateLimitKey(string $identifier): string {
+    return getRateLimitDir() . '/login_' . md5($identifier) . '.json';
+}
+
+function checkRateLimit(string $identifier, int $maxAttempts = 5, int $windowSeconds = 900): array {
+    $file = getRateLimitKey($identifier);
+    $now = time();
+
+    if (!file_exists($file)) {
+        return ['allowed' => true, 'remaining' => $maxAttempts, 'retry_after' => 0];
+    }
+
+    $data = json_decode(file_get_contents($file), true);
+    if (!$data || !isset($data['attempts'])) {
+        return ['allowed' => true, 'remaining' => $maxAttempts, 'retry_after' => 0];
+    }
+
+    // Remove expired attempts
+    $data['attempts'] = array_filter($data['attempts'], fn($ts) => $ts > $now - $windowSeconds);
+    $count = count($data['attempts']);
+
+    if ($count >= $maxAttempts) {
+        $oldest = min($data['attempts']);
+        $retryAfter = $oldest + $windowSeconds - $now;
+        return ['allowed' => false, 'remaining' => 0, 'retry_after' => max(1, $retryAfter)];
+    }
+
+    return ['allowed' => true, 'remaining' => $maxAttempts - $count, 'retry_after' => 0];
+}
+
+function recordFailedLogin(string $identifier): void {
+    $file = getRateLimitKey($identifier);
+    $now = time();
+    $data = ['attempts' => []];
+
+    if (file_exists($file)) {
+        $data = json_decode(file_get_contents($file), true) ?: $data;
+    }
+
+    if (!isset($data['attempts'])) {
+        $data['attempts'] = [];
+    }
+
+    $data['attempts'][] = $now;
+    file_put_contents($file, json_encode($data), LOCK_EX);
+}
+
+function clearRateLimit(string $identifier): void {
+    $file = getRateLimitKey($identifier);
+    if (file_exists($file)) {
+        unlink($file);
+    }
+}
+
+/**
  * Sanitize output for HTML display
  */
 function e($val) {
