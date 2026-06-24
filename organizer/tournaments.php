@@ -5,6 +5,7 @@
 $pageTitle = 'My Tournaments';
 require_once __DIR__ . '/../includes/auth.php';
 requireRole(['admin','organizer']);
+require_once __DIR__ . '/../includes/helpers.php';
 require_once __DIR__ . '/../modules/tournaments/tournament_functions.php';
 require_once __DIR__ . '/../modules/players/player_functions.php';
 require_once __DIR__ . '/../modules/uploads/payment_proof.php';
@@ -305,7 +306,37 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-$tournaments = getOrganizerTournaments($userId);
+$statusFilter = $_GET['status'] ?? '';
+
+$countSql = "SELECT COUNT(*) FROM tournaments t WHERE t.organizer_id = ?";
+$countParams = [$userId];
+if ($statusFilter === 'active') {
+    $countSql .= " AND t.status != 'completed'";
+} elseif ($statusFilter === 'completed') {
+    $countSql .= " AND t.status = 'completed'";
+}
+$stmt = db()->prepare($countSql);
+$stmt->execute($countParams);
+$totalTournaments = (int) $stmt->fetchColumn();
+
+$pagination = paginate($totalTournaments, 20);
+
+$countSqlBase = approvedRegistrationCountSql();
+$sql = "SELECT t.*, {$countSqlBase} AS registered_count
+        FROM tournaments t
+        LEFT JOIN tournament_players tp ON t.id = tp.tournament_id
+        WHERE t.organizer_id = ?";
+$params = [$userId];
+if ($statusFilter === 'active') {
+    $sql .= " AND t.status != 'completed'";
+} elseif ($statusFilter === 'completed') {
+    $sql .= " AND t.status = 'completed'";
+}
+$sql .= " GROUP BY t.id ORDER BY t.start_date DESC LIMIT {$pagination['perPage']} OFFSET {$pagination['offset']}";
+$stmt = db()->prepare($sql);
+$stmt->execute($params);
+$tournaments = $stmt->fetchAll();
+
 $allPlayers  = getAllPlayers();
 
 $activeTournaments = array_values(array_filter($tournaments, static fn($t) => ($t['status'] ?? '') !== 'completed'));
@@ -575,6 +606,11 @@ require_once __DIR__ . '/../includes/header.php';
     </div>
     <?php endif; ?>
 <?php endif; ?>
+
+<?php
+$baseUrl = '/TournamentHQ/organizer/tournaments.php' . ($statusFilter ? '?status=' . urlencode($statusFilter) : '');
+require_once __DIR__ . '/../includes/pagination.php';
+?>
 
 <!-- Create Tournament Modal -->
 <div class="modal-overlay" id="createTModal">

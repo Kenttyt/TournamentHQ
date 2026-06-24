@@ -106,76 +106,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@400;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://unpkg.com/lucide-static@latest/font/lucide.css">
     <link rel="stylesheet" href="/TournamentHQ/assets/css/style.css">
+    <link rel="stylesheet" href="/TournamentHQ/assets/css/public.css">
     <style>
-        :root {
-            --primary:        #6c63ff;
-            --primary-light:  #8b85ff;
-            --accent:         #00d4aa;
-            --bg-900:         #0d0e1a;
-            --bg-800:         #12131f;
-            --bg-700:         #1a1b2e;
-            --border:         rgba(255, 255, 255, 0.07);
-            --text-100:       #f0f2ff;
-            --text-200:       #c5c8e8;
-            --text-300:       #9094c0;
-            --text-400:       #6065a0;
-            --radius-md:      14px;
-            --radius-sm:      8px;
-            --radius-lg:      20px;
-        }
-
         .login-page {
             min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 40px 20px;
-            background:
-                radial-gradient(ellipse at 10% 20%, rgba(108,99,255,0.18) 0%, transparent 60%),
-                radial-gradient(ellipse at 90% 80%, rgba(0,212,170,0.12) 0%, transparent 60%),
-                var(--bg-900);
             overflow-x: hidden;
-        }
-
-        .home-container {
-            display: flex;
-            width: 100%;
-            max-width: 1100px;
-            gap: 56px;
-            align-items: center;
-            justify-content: space-between;
-        }
-
-        .landing-panel {
-            flex: 1.2;
-            max-width: 560px;
-            display: flex;
-            flex-direction: column;
-            gap: 28px;
-        }
-
-        .landing-headline {
-            font-family: 'Outfit', sans-serif;
-            font-size: clamp(28px, 4vw, 40px);
-            font-weight: 800;
-            line-height: 1.15;
-            color: var(--text-100);
-            letter-spacing: -0.3px;
-        }
-
-        .landing-headline em {
-            font-style: normal;
-            background: linear-gradient(135deg, var(--primary-light), var(--accent));
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-        }
-
-        .landing-lead {
-            font-size: 15px;
-            color: var(--text-300);
-            line-height: 1.65;
-            max-width: 480px;
         }
 
         .landing-steps {
@@ -260,7 +195,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             line-height: 1.4;
         }
 
-        /* Right Side: Register Panel */
         .login-section {
             flex: 0.85;
             display: flex;
@@ -269,112 +203,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         .login-card {
-            background: var(--bg-800);
-            border: 1px solid var(--border);
-            border-radius: var(--radius-lg);
             padding: 30px;
-            width: 100%;
-            max-width: 420px;
-            box-shadow: var(--shadow-lg), var(--shadow-glow);
-            backdrop-filter: blur(16px);
-        }
-
-        .login-sep {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            color: var(--text-400);
-            font-size: 11px;
-            margin: 22px 0 14px;
-        }
-
-        .login-sep::before, .login-sep::after {
-            content: '';
-            flex: 1;
-            height: 1px;
-            background: var(--border);
-        }
-
-        .input-wrap {
-            position: relative;
-        }
-
-        .input-icon {
-            position: absolute;
-            left: 14px;
-            top: 50%;
-            transform: translateY(-50%);
-            width: 16px;
-            height: 16px;
-            color: var(--text-400);
-            pointer-events: none;
-            transition: color 0.25s ease;
-        }
-
-        /* Ensure SVG icons injected by Lucide are styled like the original .input-icon */
-        .input-wrap svg[data-lucide],
-        .input-wrap .input-icon {
-            position: absolute;
-            left: 14px;
-            top: 50%;
-            transform: translateY(-50%);
-            width: 16px;
-            height: 16px;
-            color: var(--text-400);
-            pointer-events: none;
-            transition: color 0.25s ease;
-        }
-
-        .input-wrap:focus-within .input-icon,
-        .input-wrap:focus-within svg[data-lucide] {
-            color: var(--primary-light);
-        }
-
-        .input-wrap .form-control {
-            padding-left: 42px;
-            background: var(--bg-700);
-            border-color: rgba(255,255,255,0.05);
-            font-weight: 500;
-            height: 44px;
-        }
-
-        .input-wrap .form-control:focus {
-            background: var(--bg-600);
-            border-color: var(--primary);
-        }
-
-        .show-pw {
-            position: absolute;
-            right: 14px;
-            top: 50%;
-            transform: translateY(-50%);
-            background: none;
-            border: none;
-            cursor: pointer;
-            color: var(--text-400);
-            padding: 4px;
-            display: flex;
-            align-items: center;
-            z-index: 10;
-        }
-
-        .show-pw:hover {
-            color: var(--text-200);
-        }
-
-        .show-pw i {
-            width: 16px;
-            height: 16px;
-        }
-
-        .form-group {
-            margin-bottom: 12px;
-        }
-
-        .form-row {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 12px;
         }
 
         .btn-login {
@@ -394,32 +223,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             transform: translateY(-1px);
         }
 
-        @media (max-width: 900px) {
-            .home-container {
-                flex-direction: column;
-                gap: 40px;
-                max-width: 420px;
-            }
-            .landing-panel {
-                max-width: 100%;
-                text-align: center;
-                align-items: center;
-            }
-            .landing-lead { margin-left: auto; margin-right: auto; }
-            .landing-steps { width: 100%; }
-            .landing-perks { width: 100%; }
-            .login-section {
-                width: 100%;
-                min-width: 0;
-                justify-content: center;
-            }
-        }
-
         @media (max-width: 480px) {
-            .login-page { padding: 24px 16px; }
-            .login-card { padding: 28px 24px; }
             .landing-perks { grid-template-columns: 1fr; }
-            .form-row { grid-template-columns: 1fr; }
         }
     </style>
 </head>
@@ -520,7 +325,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             </svg>
                             <input type="password" id="password" name="password" class="form-control" placeholder="Min. 6 characters" minlength="6" required>
                             <button type="button" class="show-pw" id="togglePw" title="Show/hide password">
-                                <i data-lucide="eye" id="pwIcon"></i>
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="eye-icon" width="16" height="16"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="eye-off-icon" style="display:none" width="16" height="16"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>
                             </button>
                         </div>
                     </div>
@@ -591,59 +397,49 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 </div>
 
 <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+<script src="/TournamentHQ/assets/js/public.js"></script>
 <script>
-document.addEventListener('DOMContentLoaded', () => {
-    // Initialize Lucide icons
-    if (typeof lucide !== 'undefined') {
-        lucide.createIcons();
-    }
+const registerForm = document.getElementById('registerForm');
+const usernameInput = document.getElementById('username');
+const pwInput = document.getElementById('password');
+if (registerForm && usernameInput && pwInput) {
+    registerForm.addEventListener('submit', (event) => {
+        const usernameVal = usernameInput.value.trim();
+        if (!usernameVal) {
+            event.preventDefault();
+            alert('Please enter a username.');
+            usernameInput.focus();
+            return;
+        }
+        if (!/^[A-Za-z]{3,30}$/.test(usernameVal)) {
+            event.preventDefault();
+            alert('Username must be 3-30 letters only (A\u2013Z).');
+            usernameInput.focus();
+            return;
+        }
+        if (!pwInput.value || pwInput.value.length < 6) {
+            event.preventDefault();
+            alert('Please provide a password with at least 6 characters.');
+            pwInput.focus();
+            return;
+        }
+    });
+}
 
-    // Toggle Password visibility
-    const togglePw = document.getElementById('togglePw');
-    const pwInput = document.getElementById('password');
-    if (togglePw && pwInput) {
-        togglePw.addEventListener('click', () => {
-            const pwIcon = document.getElementById('pwIcon');
-            if (pwInput.type === 'password') {
-                pwInput.type = 'text';
-                pwIcon.setAttribute('data-lucide', 'eye-off');
-            } else {
-                pwInput.type = 'password';
-                pwIcon.setAttribute('data-lucide', 'eye');
-            }
-            if (typeof lucide !== 'undefined') {
-                lucide.createIcons();
-            }
-        });
-    }
-
-    const registerForm = document.getElementById('registerForm');
-    const usernameInput = document.getElementById('username');
-    const pwInput = document.getElementById('password');
-    if (registerForm && usernameInput && pwInput) {
-        registerForm.addEventListener('submit', (event) => {
-            const usernameVal = usernameInput.value.trim();
-            if (!usernameVal) {
-                event.preventDefault();
-                alert('Please enter a username.');
-                usernameInput.focus();
-                return;
-            }
-            if (!/^[A-Za-z]{3,30}$/.test(usernameVal)) {
-                event.preventDefault();
-                alert('Username must be 3-30 letters only (A–Z).');
-                usernameInput.focus();
-                return;
-            }
-            if (!pwInput.value || pwInput.value.length < 6) {
-                event.preventDefault();
-                alert('Please provide a password with at least 6 characters.');
-                pwInput.focus();
-                return;
-            }
-        });
-    }
-
+document.querySelectorAll('.show-pw').forEach(function(btn) {
+    btn.addEventListener('click', function(e) {
+        e.preventDefault();
+        var wrapper = btn.closest('.input-wrap');
+        if (!wrapper) return;
+        var input = wrapper.querySelector('input[type="password"], input[type="text"]');
+        if (!input) return;
+        var isPassword = input.type === 'password';
+        input.type = isPassword ? 'text' : 'password';
+        var eyeIcon = btn.querySelector('.eye-icon');
+        var eyeOffIcon = btn.querySelector('.eye-off-icon');
+        if (eyeIcon) eyeIcon.style.display = isPassword ? 'none' : 'block';
+        if (eyeOffIcon) eyeOffIcon.style.display = isPassword ? 'block' : 'none';
+    });
 });
 </script>
 </body>

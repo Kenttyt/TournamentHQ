@@ -238,10 +238,9 @@ if (empty($bracketGroups)): ?>
                                             data-match-id="<?= (int) $m['id'] ?>" 
                                             data-slot="1" 
                                             data-player-name="<?= e($p1Name) ?>" 
-                                            style="background: none; border: none; color: var(--accent); cursor: pointer; padding: 2px 8px; font-size: 13px; font-weight: 700; margin-left: auto; display: inline-flex; align-items: center; transition: transform 0.2s;"
-                                            title="Swap <?= ucfirst($bracketEntrantLabel ?? 'Player') ?> position"
-                                            onmouseover="this.style.transform='scale(1.25)'"
-                                            onmouseout="this.style.transform='scale(1)'">
+                                             style="background: none; border: none; color: var(--accent); cursor: pointer; padding: 2px 8px; font-size: 13px; font-weight: 700; margin-left: auto; display: inline-flex; align-items: center;"
+                                             class="swap-btn"
+                                             title="Swap <?= ucfirst($bracketEntrantLabel ?? 'Player') ?>">
                                         ⇄
                                     </button>
                                 <?php endif; ?>
@@ -267,10 +266,9 @@ if (empty($bracketGroups)): ?>
                                             data-match-id="<?= (int) $m['id'] ?>" 
                                             data-slot="2" 
                                             data-player-name="<?= e($p2Name) ?>" 
-                                            style="background: none; border: none; color: var(--accent); cursor: pointer; padding: 2px 8px; font-size: 13px; font-weight: 700; margin-left: auto; display: inline-flex; align-items: center; transition: transform 0.2s;"
-                                            title="Swap <?= ucfirst($bracketEntrantLabel ?? 'Player') ?> position"
-                                            onmouseover="this.style.transform='scale(1.25)'"
-                                            onmouseout="this.style.transform='scale(1)'">
+                                             style="background: none; border: none; color: var(--accent); cursor: pointer; padding: 2px 8px; font-size: 13px; font-weight: 700; margin-left: auto; display: inline-flex; align-items: center;"
+                                             class="swap-btn"
+                                             title="Swap <?= ucfirst($bracketEntrantLabel ?? 'Player') ?>">
                                         ⇄
                                     </button>
                                 <?php endif; ?>

@@ -268,7 +268,7 @@ require_once __DIR__ . '/../includes/header.php';
                             <tr data-sport="<?= $rowSport ?>" data-format="<?= $rowFormat ?>">
                                 <td>
                                     <div style="font-weight: 700; color: var(--text-100);">
-                                        <a href="tournament_bracket.php?tournament_id=<?= $t['id'] ?>" style="color: var(--primary-light); text-decoration: none;" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">
+                                        <a href="tournament_bracket.php?tournament_id=<?= $t['id'] ?>" style="color: var(--primary-light);" class="hover-underline">
                                             <?= e($t['name']) ?>
                                         </a>
                                     </div>

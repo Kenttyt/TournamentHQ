@@ -5,6 +5,7 @@
 $pageTitle = 'Manage Tournaments';
 require_once __DIR__ . '/../includes/auth.php';
 requireRole('admin');
+require_once __DIR__ . '/../includes/helpers.php';
 require_once __DIR__ . '/../modules/tournaments/tournament_functions.php';
 require_once __DIR__ . '/../modules/players/player_functions.php';
 
@@ -162,7 +163,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 $search       = trim($_GET['search'] ?? '');
 $statusFilter = $_GET['status'] ?? '';
-$tournaments  = getAllTournaments($search, $statusFilter);
+
+$countSql = "SELECT COUNT(*) FROM tournaments t WHERE 1=1";
+$countParams = [];
+if ($search) { $countSql .= " AND t.name LIKE ?"; $countParams[] = "%$search%"; }
+if ($statusFilter) { $countSql .= " AND t.status = ?"; $countParams[] = $statusFilter; }
+$stmt = db()->prepare($countSql);
+$stmt->execute($countParams);
+$totalTournaments = (int) $stmt->fetchColumn();
+
+$pagination = paginate($totalTournaments, 20);
+
+$countSqlBase = approvedRegistrationCountSql();
+$sql = "SELECT t.*, u.username AS organizer_name, {$countSqlBase} AS registered_count
+        FROM tournaments t
+        JOIN users u ON t.organizer_id = u.id
+        LEFT JOIN tournament_players tp ON t.id = tp.tournament_id
+        WHERE 1=1";
+$params = [];
+if ($search) { $sql .= " AND t.name LIKE ?"; $params[] = "%$search%"; }
+if ($statusFilter) { $sql .= " AND t.status = ?"; $params[] = $statusFilter; }
+$sql .= " GROUP BY t.id ORDER BY t.start_date DESC LIMIT {$pagination['perPage']} OFFSET {$pagination['offset']}";
+$stmt = db()->prepare($sql);
+$stmt->execute($params);
+$tournaments = $stmt->fetchAll();
+
 $allPlayers   = getAllPlayers();
 $organizers   = db()->query("SELECT id, username FROM users WHERE role IN ('admin','organizer') ORDER BY username")->fetchAll();
 
@@ -257,7 +282,13 @@ require_once __DIR__ . '/../includes/header.php';
 <?php endif; ?>
 </div>
 
-<!-- Create Tournament Modal -->
+<?php
+$baseUrlParams = [];
+if ($search) $baseUrlParams[] = 'search=' . urlencode($search);
+if ($statusFilter) $baseUrlParams[] = 'status=' . urlencode($statusFilter);
+$baseUrl = '/TournamentHQ/admin/manage_tournaments.php' . ($baseUrlParams ? '?' . implode('&', $baseUrlParams) : '');
+require_once __DIR__ . '/../includes/pagination.php';
+?>
 <div class="modal-overlay" id="createTournamentModal">
     <div class="modal" style="max-width:600px">
         <div class="modal-header">

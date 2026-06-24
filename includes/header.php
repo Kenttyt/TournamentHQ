@@ -82,6 +82,7 @@ $currentPage = basename($_SERVER['PHP_SELF']);
     <?= isset($extraCss) ? $extraCss : '' ?>
 </head>
 <body>
+<a href="#main-content" class="skip-link">Skip to content</a>
 
 <?php if ($user): ?>
 <!-- Sidebar -->
@@ -130,7 +131,7 @@ $currentPage = basename($_SERVER['PHP_SELF']);
 <div class="main-wrapper">
     <!-- Top Bar -->
     <header class="topbar">
-        <button class="sidebar-toggle" id="sidebarToggle">
+        <button class="sidebar-toggle" id="sidebarToggle" aria-label="Toggle sidebar" aria-expanded="false">
             <i data-lucide="menu"></i>
         </button>
         <div class="topbar-title"><?= isset($pageTitle) ? e($pageTitle) : 'Dashboard' ?></div>
@@ -158,5 +159,5 @@ $currentPage = basename($_SERVER['PHP_SELF']);
     <?php endif; ?>
 
     <!-- Page Content -->
-    <main class="page-content">
+    <main class="page-content" id="main-content">
 <?php endif; ?>

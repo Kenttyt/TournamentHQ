@@ -5,6 +5,7 @@
 $pageTitle = 'Manage Players';
 require_once __DIR__ . '/../includes/auth.php';
 requireRole('admin');
+require_once __DIR__ . '/../includes/helpers.php';
 require_once __DIR__ . '/../modules/players/player_functions.php';
 
 // Handle actions
@@ -33,7 +34,35 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $search  = trim($_GET['search'] ?? '');
-$players = getAllPlayers($search);
+
+$countSql = "SELECT COUNT(*) FROM players p JOIN users u ON p.user_id = u.id WHERE 1=1";
+$countParams = [];
+if ($search) {
+    $countSql .= " AND (p.first_name LIKE ? OR p.last_name LIKE ? OR p.club LIKE ? OR p.nationality LIKE ?)";
+    $like = "%$search%";
+    $countParams = [$like, $like, $like, $like];
+}
+$totalPlayers = (int) db()->prepare($countSql)->execute($countParams) ? db()->prepare($countSql)->execute($countParams) : 0;
+$stmt = db()->prepare($countSql);
+$stmt->execute($countParams);
+$totalPlayers = (int) $stmt->fetchColumn();
+
+$pagination = paginate($totalPlayers, 20);
+
+$sql = "SELECT p.*, u.username, u.email, u.is_active
+        FROM players p
+        JOIN users u ON p.user_id = u.id
+        WHERE 1=1";
+$params = [];
+if ($search) {
+    $sql .= " AND (p.first_name LIKE ? OR p.last_name LIKE ? OR p.club LIKE ? OR p.nationality LIKE ?)";
+    $like = "%$search%";
+    $params = [$like, $like, $like, $like];
+}
+$sql .= " ORDER BY p.first_name ASC, p.last_name ASC LIMIT {$pagination['perPage']} OFFSET {$pagination['offset']}";
+$players = db()->prepare($sql);
+$players->execute($params);
+$players = $players->fetchAll();
 require_once __DIR__ . '/../includes/header.php';
 ?>
 
@@ -115,6 +144,10 @@ require_once __DIR__ . '/../includes/header.php';
             </table>
         </div>
     </div>
+    <?php
+    $baseUrl = '/TournamentHQ/admin/manage_players.php' . ($search ? '?search=' . urlencode($search) : '');
+    require_once __DIR__ . '/../includes/pagination.php';
+    ?>
 </div>
 
 <!-- Edit Player Modal -->

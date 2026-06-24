@@ -65,7 +65,6 @@ if ($message): ?>
                    placeholder="you@example.com or your username" required
                    value="<?= e($_POST['email_or_username'] ?? '') ?>" autocomplete="username">
         </div>
-    </div>
     <button type="submit" class="btn btn-primary w-full" style="justify-content:center;height:46px;margin-top:8px">
         Send reset link
     </button>

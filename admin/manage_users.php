@@ -5,6 +5,7 @@
 $pageTitle = 'Manage Users';
 require_once __DIR__ . '/../includes/auth.php';
 requireRole('admin');
+require_once __DIR__ . '/../includes/helpers.php';
 require_once __DIR__ . '/../config/database.php';
 
 // Handle actions
@@ -73,10 +74,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $search = trim($_GET['search'] ?? '');
+
+$countSql = "SELECT COUNT(*) FROM users WHERE 1=1";
+$countParams = [];
+if ($search) { $countSql .= " AND (username LIKE ? OR email LIKE ?)"; $like="%$search%"; $countParams=[$like,$like]; }
+$totalUsers = (int) db()->prepare($countSql)->execute($countParams) ? 0 : 0;
+$stmt = db()->prepare($countSql);
+$stmt->execute($countParams);
+$totalUsers = (int) $stmt->fetchColumn();
+
+$pagination = paginate($totalUsers, 20);
+
 $sql = "SELECT * FROM users WHERE 1=1";
 $params = [];
 if ($search) { $sql .= " AND (username LIKE ? OR email LIKE ?)"; $like="%$search%"; $params=[$like,$like]; }
-$sql .= " ORDER BY created_at DESC";
+$sql .= " ORDER BY created_at DESC LIMIT {$pagination['perPage']} OFFSET {$pagination['offset']}";
 $stmt = db()->prepare($sql);
 $stmt->execute($params);
 $users = $stmt->fetchAll();
@@ -170,9 +182,11 @@ require_once __DIR__ . '/../includes/header.php';
             </table>
         </div>
     </div>
+    <?php
+    $baseUrl = '/TournamentHQ/admin/manage_users.php' . ($search ? '?search=' . urlencode($search) : '');
+    require_once __DIR__ . '/../includes/pagination.php';
+    ?>
 </div>
-
-<!-- Create User Modal -->
 <div class="modal-overlay" id="createUserModal">
     <div class="modal">
         <div class="modal-header">

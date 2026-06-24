@@ -76,32 +76,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@400;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://unpkg.com/lucide-static@latest/font/lucide.css">
     <link rel="stylesheet" href="/TournamentHQ/assets/css/style.css">
+    <link rel="stylesheet" href="/TournamentHQ/assets/css/public.css">
     <style>
-        :root {
-            --primary:        #6c63ff;
-            --primary-light:  #8b85ff;
-            --accent:         #00d4aa;
-            --bg-900:         #0d0e1a;
-            --bg-800:         #12131f;
-            --bg-700:         #1a1b2e;
-            --border:         rgba(255, 255, 255, 0.07);
-            --text-100:       #f0f2ff;
-            --text-200:       #c5c8e8;
-            --text-300:       #9094c0;
-            --text-400:       #6065a0;
-            --radius-md:      14px;
-            --radius-sm:      8px;
-            --radius-lg:      20px;
-        }
-
-        body {
-            margin: 0;
-            padding: 0;
-            font-family: 'Inter', sans-serif;
-            background-color: var(--bg-900);
-            color: var(--text-100);
-        }
-
         .page-wrapper {
             min-height: 100vh;
             display: flex;
@@ -114,7 +90,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 var(--bg-900);
         }
 
-        .card {
+        .rv-card {
             width: 100%;
             max-width: 400px;
             background-color: var(--bg-800);
@@ -124,28 +100,65 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
         }
 
-        .card-title {
+        .rv-card h1 {
             font-size: 24px;
             font-weight: 700;
-            margin-bottom: 12px;
+            margin: 0 0 12px 0;
             background: linear-gradient(135deg, var(--primary), var(--accent));
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             background-clip: text;
         }
 
-        .card-description {
+        .rv-card .lead {
             font-size: 14px;
             color: var(--text-300);
-            margin-bottom: 30px;
+            margin: 0 0 30px 0;
             line-height: 1.6;
         }
 
-        .form-group {
+        .rv-alert {
+            padding: 14px 16px;
+            border-radius: var(--radius-md);
+            margin-bottom: 20px;
+            font-size: 13px;
+            line-height: 1.5;
+        }
+
+        .rv-alert-success {
+            background-color: rgba(0, 212, 170, 0.15);
+            color: var(--accent);
+            border: 1px solid rgba(0, 212, 170, 0.3);
+        }
+
+        .rv-alert-danger {
+            background-color: rgba(255, 77, 77, 0.15);
+            color: #ff4d4d;
+            border: 1px solid rgba(255, 77, 77, 0.3);
+        }
+
+        .rv-alert-warning {
+            background-color: rgba(255, 193, 7, 0.15);
+            color: #ffc107;
+            border: 1px solid rgba(255, 193, 7, 0.3);
+        }
+
+        .rv-alert-info {
+            background-color: rgba(33, 150, 243, 0.15);
+            color: #2196f3;
+            border: 1px solid rgba(33, 150, 243, 0.3);
+        }
+
+        .rv-alert a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        .rv-form-group {
             margin-bottom: 20px;
         }
 
-        .form-group label {
+        .rv-form-group label {
             display: block;
             font-size: 13px;
             font-weight: 600;
@@ -155,7 +168,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             letter-spacing: 0.5px;
         }
 
-        .form-group input {
+        .rv-form-group input {
             width: 100%;
             padding: 12px 16px;
             font-size: 14px;
@@ -167,14 +180,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             box-sizing: border-box;
         }
 
-        .form-group input:focus {
+        .rv-form-group input:focus {
             outline: none;
             border-color: var(--primary);
             background-color: rgba(255, 255, 255, 0.08);
             box-shadow: 0 0 0 3px rgba(108, 99, 255, 0.1);
         }
 
-        .button {
+        .rv-btn {
             width: 100%;
             padding: 12px 16px;
             font-size: 14px;
@@ -187,101 +200,66 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             letter-spacing: 0.5px;
         }
 
-        .button-primary {
+        .rv-btn-primary {
             background: linear-gradient(135deg, var(--primary), var(--primary-light));
             color: white;
             margin-bottom: 16px;
         }
 
-        .button-primary:hover {
+        .rv-btn-primary:hover {
             transform: translateY(-2px);
             box-shadow: 0 8px 24px rgba(108, 99, 255, 0.3);
         }
 
-        .button-secondary {
+        .rv-btn-secondary {
             background-color: transparent;
             color: var(--primary);
             border: 1px solid var(--primary);
         }
 
-        .button-secondary:hover {
+        .rv-btn-secondary:hover {
             background-color: rgba(108, 99, 255, 0.1);
         }
 
-        .alert {
-            padding: 14px 16px;
-            border-radius: var(--radius-md);
-            margin-bottom: 20px;
-            font-size: 13px;
-            line-height: 1.5;
-        }
-
-        .alert-success {
-            background-color: rgba(0, 212, 170, 0.15);
-            color: var(--accent);
-            border: 1px solid rgba(0, 212, 170, 0.3);
-        }
-
-        .alert-danger {
-            background-color: rgba(255, 77, 77, 0.15);
-            color: #ff4d4d;
-            border: 1px solid rgba(255, 77, 77, 0.3);
-        }
-
-        .alert-warning {
-            background-color: rgba(255, 193, 7, 0.15);
-            color: #ffc107;
-            border: 1px solid rgba(255, 193, 7, 0.3);
-        }
-
-        .alert-info {
-            background-color: rgba(33, 150, 243, 0.15);
-            color: #2196f3;
-            border: 1px solid rgba(33, 150, 243, 0.3);
-        }
-
-        .alert a {
-            color: inherit;
-            text-decoration: underline;
-        }
-
-        .divider {
+        .rv-divider {
             text-align: center;
             margin: 20px 0;
             font-size: 12px;
             color: var(--text-400);
         }
 
-        .links {
+        .rv-links {
             text-align: center;
             font-size: 12px;
         }
 
-        .links a {
+        .rv-links a {
             color: var(--primary);
             text-decoration: none;
             margin: 0 4px;
         }
 
-        .links a:hover {
+        .rv-links a:hover {
             text-decoration: underline;
         }
     </style>
 </head>
 <body>
     <div class="page-wrapper">
-        <div class="card">
-            <h1 class="card-title">Resend Verification</h1>
-            <p class="card-description">Didn't receive your verification email? We'll send a new one.</p>
+        <div class="rv-card">
+            <h1>Resend Verification</h1>
+            <p class="lead">Didn't receive your verification email? We'll send a new one.</p>
 
             <?php if ($message): ?>
-                <div class="alert alert-<?php echo htmlspecialchars($messageType); ?>">
+                <div class="rv-alert rv-alert-<?php echo htmlspecialchars($messageType); ?>">
                     <?php echo $message; ?>
                 </div>
             <?php endif; ?>
 
             <form method="POST">
                 <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
+                <div class="rv-form-group">
+                    <label for="email">Email</label>
                     <input
                         type="email"
                         id="email"
@@ -291,18 +269,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     >
                 </div>
 
-                <button type="submit" class="button button-primary">
+                <button type="submit" class="rv-btn rv-btn-primary">
                     Resend Verification Email
                 </button>
             </form>
 
-            <div class="divider">OR</div>
+            <div class="rv-divider">OR</div>
 
-            <button onclick="location.href='/TournamentHQ/index.php'" class="button button-secondary">
+            <button onclick="location.href='/TournamentHQ/index.php'" class="rv-btn rv-btn-secondary">
                 Back to Sign In
             </button>
 
-            <div class="links">
+            <div class="rv-links">
                 <p style="margin: 20px 0 10px 0; color: var(--text-300);">
                     Don't have an account? <a href="/TournamentHQ/register.php">Sign up</a>
                 </p>

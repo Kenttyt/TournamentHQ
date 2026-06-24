@@ -5,6 +5,7 @@
 $pageTitle = 'Players';
 require_once __DIR__ . '/../includes/auth.php';
 requireRole(['admin','organizer']);
+require_once __DIR__ . '/../includes/helpers.php';
 require_once __DIR__ . '/../modules/players/player_functions.php';
 require_once __DIR__ . '/../modules/tournaments/tournament_functions.php';
 
@@ -12,15 +13,22 @@ $userId = (int)$_SESSION['user_id'];
 $myTourneys = getOrganizerTournaments($userId);
 $tidFilter  = (int)($_GET['tournament_id'] ?? 0);
 
+$pagination = paginate(0, 20);
+
 if ($tidFilter) {
-    $players = getTournamentPlayers($tidFilter);
+    $allPlayers = getTournamentPlayers($tidFilter);
+    $guests = getTournamentGuests($tidFilter);
+    $totalPlayers = count($allPlayers) + count($guests);
+    $pagination = paginate($totalPlayers, 20);
+
+    $players = array_slice($allPlayers, $pagination['offset'], $pagination['perPage']);
     foreach ($players as &$p) {
         $p['is_guest'] = false;
     }
     unset($p);
     
-    $guests = getTournamentGuests($tidFilter);
-    foreach ($guests as $g) {
+    $guestsPage = array_slice($guests, max(0, $pagination['offset'] - count($allPlayers)), $pagination['perPage']);
+    foreach ($guestsPage as $g) {
         $regName = trim(($g['reg_first'] ?? '') . ' ' . ($g['reg_last'] ?? ''));
         $players[] = [
             'id' => 0,
@@ -35,7 +43,13 @@ if ($tidFilter) {
         ];
     }
 } else {
-    $players = getAllPlayers();
+    $countStmt = db()->query("SELECT COUNT(*) FROM players");
+    $totalPlayers = (int) $countStmt->fetchColumn();
+    $pagination = paginate($totalPlayers, 20);
+
+    $stmt = db()->prepare("SELECT p.*, u.username, u.email, u.is_active FROM players p JOIN users u ON p.user_id = u.id ORDER BY p.first_name ASC, p.last_name ASC LIMIT {$pagination['perPage']} OFFSET {$pagination['offset']}");
+    $stmt->execute();
+    $players = $stmt->fetchAll();
     foreach ($players as &$p) {
         $p['is_guest'] = false;
     }
@@ -115,6 +129,10 @@ require_once __DIR__ . '/../includes/header.php';
             </table>
         </div>
     </div>
+    <?php
+    $baseUrl = '/TournamentHQ/organizer/players.php' . ($tidFilter ? '?tournament_id=' . $tidFilter : '');
+    require_once __DIR__ . '/../includes/pagination.php';
+    ?>
 </div>
 
 <?php require_once __DIR__ . '/../includes/footer.php'; ?>

@@ -33,83 +33,20 @@ try {
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@400;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://unpkg.com/lucide-static@latest/font/lucide.css">
     <link rel="stylesheet" href="/TournamentHQ/assets/css/style.css">
+    <link rel="stylesheet" href="/TournamentHQ/assets/css/public.css">
     <style>
-        :root {
-            --primary: #6c63ff;
-            --primary-light: #8b85ff;
-            --accent: #00d4aa;
-            --bg-900: #0d0e1a;
-            --bg-800: #12131f;
-            --bg-700: #1a1b2e;
-            --border: rgba(255,255,255,0.07);
-            --text-100: #f0f2ff;
-            --text-200: #c5c8e8;
-            --text-300: #9094c0;
-            --text-400: #6065a0;
-            --radius-md: 14px;
-            --radius-sm: 8px;
-            --radius-lg: 20px;
-        }
-        body {
-            background-color: var(--bg-900); color: var(--text-100); margin: 0;
-            font-family: 'Inter', sans-serif; min-height: 100vh; display: flex; flex-direction: column;
-        }
-        .site-header {
-            position: sticky; top: 0; z-index: 100;
-            background: #0f111a; border-bottom: 1px solid rgba(255,255,255,0.05);
-            padding: 0 24px; height: 72px; display: flex; align-items: center;
-        }
-        .nav-container {
-            width: 100%; max-width: 1200px; margin: 0 auto;
-            display: flex; justify-content: space-between; align-items: center; height: 100%;
-        }
-        .brand-logo {
-            display: flex; align-items: center; gap: 8px; text-decoration: none;
-            color: #fff; font-family: 'Outfit', sans-serif; font-weight: 800;
-            font-size: 22px; letter-spacing: -0.5px; text-transform: uppercase;
-        }
-        .brand-logo em { font-style: normal; color: var(--accent); }
-        .nav-links { display: flex; align-items: center; gap: 12px; }
-        .nav-link-item {
-            color: #a3a7c2; text-decoration: none; font-weight: 700; font-size: 13px;
-            letter-spacing: 0.5px; text-transform: uppercase; transition: all 0.25s ease;
-            display: flex; align-items: center; gap: 6px; background: var(--bg-700);
-            border: 1px solid var(--border); border-radius: var(--radius-sm);
-            cursor: pointer; padding: 10px 22px;
-        }
-        .nav-link-item:hover { color: #fff; border-color: rgba(108,99,255,0.4); background: rgba(108,99,255,0.1); }
-        .nav-link-item.active { color: #fff; background: rgba(108,99,255,0.2); border-color: rgba(108,99,255,0.5); }
-        .nav-login {
-            color: var(--accent); text-decoration: none; font-weight: 700; font-size: 13px;
-            letter-spacing: 0.5px; text-transform: uppercase; transition: all 0.25s ease;
-            display: flex; align-items: center; gap: 6px; background: rgba(0,212,170,0.1);
-            border: 1px solid rgba(0,212,170,0.3); border-radius: var(--radius-sm);
-            padding: 10px 22px;
-        }
-        .nav-login:hover { background: rgba(0,212,170,0.2); border-color: rgba(0,212,170,0.5); color: #fff; }
-        .login-page {
-            flex: 1; display: flex; align-items: center; justify-content: center;
-            padding: 60px 20px;
-            background: radial-gradient(ellipse at 10% 20%, rgba(108,99,255,0.12) 0%, transparent 60%),
-                        radial-gradient(ellipse at 90% 80%, rgba(0,212,170,0.08) 0%, transparent 60%),
-                        var(--bg-900);
-        }
         .home-container {
-            display: flex; width: 100%; max-width: 800px;
-            align-items: center; justify-content: center;
+            max-width: 800px;
+            align-items: center;
+            justify-content: center;
         }
-        .landing-panel { max-width: 700px; display: flex; flex-direction: column; gap: 28px; align-items: center; text-align: center; }
-        .landing-headline {
-            font-family: 'Outfit', sans-serif; font-size: clamp(28px, 4vw, 40px);
-            font-weight: 800; line-height: 1.15; color: var(--text-100); letter-spacing: -0.3px;
+        .landing-panel {
+            flex: none;
+            max-width: 700px;
+            align-items: center;
+            text-align: center;
         }
-        .landing-headline em {
-            font-style: normal; background: linear-gradient(135deg, var(--primary-light), var(--accent));
-            -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
-        }
-        .landing-lead { font-size: 15px; color: var(--text-300); line-height: 1.65; max-width: 520px; }
 
-        /* How It Works */
         .how-section {
             width: 100%; max-width: 900px; margin: 0 auto;
             padding: 50px 20px 40px; box-sizing: border-box;
@@ -143,7 +80,6 @@ try {
             font-size: 13px; color: var(--text-300); line-height: 1.6; margin: 0;
         }
 
-        /* Stats Bar */
         .stats-section {
             width: 100%; max-width: 800px; margin: 0 auto;
             padding: 10px 20px 60px; box-sizing: border-box;
@@ -165,7 +101,6 @@ try {
             text-transform: uppercase; letter-spacing: 0.5px;
         }
 
-        /* Featured Tournaments */
         .tournament-section {
             width: 100%; max-width: 1000px; margin: 0 auto;
             padding: 0 20px 60px; box-sizing: border-box;
@@ -232,13 +167,6 @@ try {
             color: var(--text-400); font-size: 14px;
         }
         .empty-state i { width: 40px; height: 40px; color: var(--text-400); margin-bottom: 12px; display: block; margin-left: auto; margin-right: auto; }
-
-        /* Footer */
-        .site-footer {
-            border-top: 1px solid var(--border);
-            padding: 24px 20px; text-align: center;
-            font-size: 12px; color: var(--text-400);
-        }
     </style>
 </head>
 <body>
@@ -352,8 +280,6 @@ try {
 </footer>
 
 <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
-<script>
-document.addEventListener('DOMContentLoaded', () => { lucide.createIcons(); });
-</script>
+<script src="/TournamentHQ/assets/js/public.js"></script>
 </body>
 </html>

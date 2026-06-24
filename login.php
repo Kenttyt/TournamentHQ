@@ -200,56 +200,13 @@ $googleEnabled = isGoogleOAuthConfigured();
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@400;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://unpkg.com/lucide-static@latest/font/lucide.css">
     <link rel="stylesheet" href="/TournamentHQ/assets/css/style.css">
+    <link rel="stylesheet" href="/TournamentHQ/assets/css/public.css">
     <style>
-        :root {
-            --primary: #6c63ff;
-            --primary-light: #8b85ff;
-            --accent: #00d4aa;
-            --bg-900: #0d0e1a;
-            --bg-800: #12131f;
-            --bg-700: #1a1b2e;
-            --border: rgba(255,255,255,0.07);
-            --text-100: #f0f2ff;
-            --text-200: #c5c8e8;
-            --text-300: #9094c0;
-            --text-400: #6065a0;
-            --radius-md: 14px;
-            --radius-sm: 8px;
-            --radius-lg: 20px;
-        }
-        body {
-            background-color: var(--bg-900); color: var(--text-100); margin: 0;
-            font-family: 'Inter', sans-serif; min-height: 100vh; display: flex; flex-direction: column;
-        }
-        .site-header {
-            position: sticky; top: 0; z-index: 100;
-            background: #0f111a; border-bottom: 1px solid rgba(255,255,255,0.05);
-            padding: 0 24px; height: 72px; display: flex; align-items: center;
-        }
-        .nav-container {
-            width: 100%; max-width: 1200px; margin: 0 auto;
-            display: flex; justify-content: space-between; align-items: center; height: 100%;
-        }
-        .brand-logo {
-            display: flex; align-items: center; gap: 8px; text-decoration: none;
-            color: #fff; font-family: 'Outfit', sans-serif; font-weight: 800;
-            font-size: 22px; letter-spacing: -0.5px; text-transform: uppercase;
-        }
-        .brand-logo em { font-style: normal; color: var(--accent); }
-        .login-page {
-            flex: 1; display: flex; align-items: center; justify-content: center;
-            padding: 60px 20px;
-            background: radial-gradient(ellipse at 10% 20%, rgba(108,99,255,0.12) 0%, transparent 60%),
-                        radial-gradient(ellipse at 90% 80%, rgba(0,212,170,0.08) 0%, transparent 60%),
-                        var(--bg-900);
-        }
         .login-card {
-            background: var(--bg-800); border: 1px solid var(--border);
-            border-radius: var(--radius-lg); padding: 0; width: 100%;
-            max-width: 420px; box-shadow: 0 8px 32px rgba(0,0,0,0.3); overflow: hidden;
+            padding: 0;
+            overflow: hidden;
         }
 
-        /* Tabs */
         .auth-tabs {
             display: flex; border-bottom: 1px solid var(--border);
         }
@@ -276,99 +233,10 @@ $googleEnabled = isGoogleOAuthConfigured();
         .auth-form .lead {
             font-size: 13px; color: var(--text-400); margin: 0 0 24px 0;
         }
-        .form-group { margin-bottom: 14px; }
-        .form-group label {
-            display: block; font-size: 12px; font-weight: 600;
-            color: var(--text-200); margin-bottom: 5px; text-transform: uppercase;
-            letter-spacing: 0.3px;
-        }
-        .input-wrap { position: relative; }
-        .input-icon {
-            position: absolute; left: 14px; top: 50%; transform: translateY(-50%);
-            width: 16px; height: 16px; color: var(--text-400); pointer-events: none;
-            transition: color 0.25s ease;
-        }
-        .form-control:focus ~ .input-icon { color: var(--primary-light); }
-        .input-wrap .form-control {
-            width: 100%; padding: 11px 14px 11px 42px; box-sizing: border-box;
-            background: var(--bg-700); border: 1px solid var(--border);
-            border-radius: var(--radius-sm); color: var(--text-100);
-            font-family: 'Inter', sans-serif; font-size: 14px; font-weight: 500;
-            height: 44px; outline: none; transition: border-color 0.2s ease, background 0.2s ease;
-        }
-        .form-control:focus { border-color: var(--primary); background: rgba(108,99,255,0.05); }
-        .form-control::placeholder { color: var(--text-400); }
-        .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-        .form-select {
-            width: 100%; height: 44px; padding: 0 14px; box-sizing: border-box;
-            background: var(--bg-700); border: 1px solid var(--border);
-            border-radius: var(--radius-sm); color: var(--text-100);
-            font-family: 'Inter', sans-serif; font-size: 13px; font-weight: 500;
-            outline: none; cursor: pointer;
-        }
-        .form-select:focus { border-color: var(--primary); }
-        .show-pw {
-            position: absolute; right: 14px; top: 50%; transform: translateY(-50%);
-            background: none; border: none; cursor: pointer; color: var(--text-400);
-            padding: 4px; display: flex; align-items: center;
-        }
-        .show-pw:hover { color: var(--text-200); }
-        .show-pw i { width: 16px; height: 16px; }
-        .form-error {
-            background: rgba(255,80,80,0.1); border: 1px solid rgba(255,80,80,0.3);
-            border-radius: var(--radius-sm); padding: 10px 14px; margin-bottom: 14px;
-            font-size: 13px; color: #ff6b6b; line-height: 1.5;
-        }
-        .form-error a { color: #ff6b6b; text-decoration: underline; }
-        .form-warning {
-            background: rgba(255,165,0,0.1); border: 1px solid rgba(255,165,0,0.35);
-            border-radius: var(--radius-sm); padding: 10px 14px; margin-bottom: 14px;
-            font-size: 13px; color: #ffb74d; line-height: 1.5;
-        }
-        .form-warning a { color: #ffb74d; text-decoration: underline; }
-        .form-success {
-            background: rgba(0,212,170,0.1); border: 1px solid rgba(0,212,170,0.3);
-            border-radius: var(--radius-sm); padding: 10px 14px; margin-bottom: 14px;
-            font-size: 13px; color: var(--accent); line-height: 1.5;
-        }
-        .btn-submit {
-            width: 100%; height: 44px; border: none; border-radius: var(--radius-sm);
-            font-family: 'Inter', sans-serif; font-size: 14px; font-weight: 600;
-            color: #fff; cursor: pointer; margin-top: 6px;
-            background: linear-gradient(135deg, var(--primary), #5a52d5);
-            box-shadow: 0 4px 12px rgba(108,99,255,0.25);
-            transition: box-shadow 0.2s ease, transform 0.2s ease;
-            display: flex; align-items: center; justify-content: center;
-        }
-        .btn-submit:hover { box-shadow: 0 6px 18px rgba(108,99,255,0.4); transform: translateY(-1px); }
-        .form-hint {
-            font-size: 11px; color: var(--text-400); margin-top: 4px;
-        }
-        .login-sep {
-            display: flex; align-items: center; gap: 10px;
-            color: var(--text-400); font-size: 11px; margin: 18px 0 14px;
-        }
-        .login-sep::before, .login-sep::after {
-            content: ''; flex: 1; height: 1px; background: var(--border);
-        }
-        .btn-google {
-            width: 100%; height: 44px; border: 1px solid #dadce0; border-radius: var(--radius-sm);
-            font-family: 'Inter', sans-serif; font-size: 13px; font-weight: 500;
-            color: #1f1f1f; cursor: pointer; margin-top: 10px;
-            background: #fff; display: flex; align-items: center; justify-content: center;
-            gap: 10px; text-decoration: none; transition: background 0.2s ease, box-shadow 0.2s ease;
-        }
-        .btn-google:hover { background: #f8f9fa; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
-        .btn-google svg { width: 18px; height: 18px; }
-        .site-footer {
-            border-top: 1px solid var(--border);
-            padding: 24px 20px; text-align: center;
-            font-size: 12px; color: var(--text-400);
-        }
+
         @media (max-width: 480px) {
             .login-card { margin: 0 8px; }
             .auth-form { padding: 24px 20px 28px; }
-            .form-row { grid-template-columns: 1fr; }
         }
     </style>
 </head>
@@ -396,7 +264,7 @@ $googleEnabled = isGoogleOAuthConfigured();
         <div class="auth-form <?= $activeTab !== 'login' ? 'hidden' : '' ?>" id="loginForm">
             <?php if ($roleParam === 'umpire'): ?>
                 <div style="margin-bottom: 16px;">
-                    <a href="/TournamentHQ/login.php?role=organizer" style="color: var(--primary-light); font-size: 13px; text-decoration: none; display: inline-flex; align-items: center; gap: 4px; font-weight: 500;" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">
+                    <a href="/TournamentHQ/login.php?role=organizer" style="color: var(--primary-light); font-size: 13px; display: inline-flex; align-items: center; gap: 4px; font-weight: 500;" class="hover-underline">
                         <i data-lucide="arrow-left" style="width: 14px; height: 14px;"></i> Back to Login
                     </a>
                 </div>
@@ -439,17 +307,18 @@ $googleEnabled = isGoogleOAuthConfigured();
                         <input type="password" id="login-password" name="password" class="form-control"
                                placeholder="Enter your password" required>
                         <i data-lucide="lock" class="input-icon"></i>
-                        <button type="button" class="show-pw" onclick="togglePassword('login-password', 'login-pw-icon')">
-                            <i data-lucide="eye" id="login-pw-icon"></i>
+                        <button type="button" class="show-pw">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="eye-icon" width="16" height="16"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="eye-off-icon" style="display:none" width="16" height="16"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>
                         </button>
                     </div>
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 6px;">
                         <?php if ($roleParam === 'organizer'): ?>
-                            <a href="/TournamentHQ/login.php?role=umpire" style="color: var(--primary-light); font-size: 12px; text-decoration: none; font-weight: 500;" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">Are you an Umpire? Log in here</a>
+                            <a href="/TournamentHQ/login.php?role=umpire" style="color: var(--primary-light); font-size: 12px; font-weight: 500;" class="hover-underline">Are you an Umpire? Log in here</a>
                         <?php else: ?>
                             <div></div>
                         <?php endif; ?>
-                        <a href="/TournamentHQ/forgot-password.php" style="color: var(--primary-light); font-size: 12px; text-decoration: none; font-weight: 500;" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">Forgot password?</a>
+                        <a href="/TournamentHQ/forgot-password.php" style="color: var(--primary-light); font-size: 12px; font-weight: 500;" class="hover-underline">Forgot password?</a>
                     </div>
                 </div>
                 <?php endif; ?>
@@ -509,8 +378,9 @@ $googleEnabled = isGoogleOAuthConfigured();
                         <input type="password" id="reg-password" name="password" class="form-control"
                                placeholder="Min. 6 characters" required minlength="6">
                         <i data-lucide="lock" class="input-icon"></i>
-                        <button type="button" class="show-pw" onclick="togglePassword('reg-password', 'reg-pw-icon')">
-                            <i data-lucide="eye" id="reg-pw-icon"></i>
+                        <button type="button" class="show-pw">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="eye-icon" width="16" height="16"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="eye-off-icon" style="display:none" width="16" height="16"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>
                         </button>
                     </div>
                 </div>
@@ -559,9 +429,8 @@ $googleEnabled = isGoogleOAuthConfigured();
 </footer>
 
 <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+<script src="/TournamentHQ/assets/js/public.js"></script>
 <script>
-document.addEventListener('DOMContentLoaded', () => { lucide.createIcons(); });
-
 function switchTab(tab) {
     document.querySelectorAll('.auth-tab').forEach(t => t.classList.remove('active'));
     document.querySelectorAll('.auth-form').forEach(f => f.classList.add('hidden'));
@@ -575,18 +444,21 @@ function switchTab(tab) {
     lucide.createIcons();
 }
 
-function togglePassword(inputId, iconId) {
-    const input = document.getElementById(inputId);
-    const icon = document.getElementById(iconId);
-    if (input.type === 'password') {
-        input.type = 'text';
-        icon.setAttribute('data-lucide', 'eye-off');
-    } else {
-        input.type = 'password';
-        icon.setAttribute('data-lucide', 'eye');
-    }
-    lucide.createIcons();
-}
+document.querySelectorAll('.show-pw').forEach(function(btn) {
+    btn.addEventListener('click', function(e) {
+        e.preventDefault();
+        var wrapper = btn.closest('.input-wrap');
+        if (!wrapper) return;
+        var input = wrapper.querySelector('input[type="password"], input[type="text"]');
+        if (!input) return;
+        var isPassword = input.type === 'password';
+        input.type = isPassword ? 'text' : 'password';
+        var eyeIcon = btn.querySelector('.eye-icon');
+        var eyeOffIcon = btn.querySelector('.eye-off-icon');
+        if (eyeIcon) eyeIcon.style.display = isPassword ? 'none' : 'block';
+        if (eyeOffIcon) eyeOffIcon.style.display = isPassword ? 'block' : 'none';
+    });
+});
 </script>
 </body>
 </html>
