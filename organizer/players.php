@@ -72,13 +72,18 @@ require_once __DIR__ . '/../includes/header.php';
         <div class="filter-bar">
             <div class="search-wrap">
                 <svg class="search-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-                <input type="text" class="form-control" placeholder="Search players…" data-search-table="orgPlayersTable">
+                <input type="text" class="form-control" placeholder="Search by name, club, or place…" data-search-table="orgPlayersTable">
             </div>
-            <select class="form-select" style="width:220px" onchange="window.location='players.php?tournament_id='+this.value">
-                <option value="">All Players</option>
+            <select class="form-select" style="width:220px" onchange="window.location='players.php?tournament_id='+this.value<?= isset($_GET['type']) ? '&type='+ urlencode($_GET['type']) : '' ?>">
+                <option value="">All Tournaments</option>
                 <?php foreach ($myTourneys as $t): ?>
                 <option value="<?= $t['id'] ?>" <?= $tidFilter==$t['id']?'selected':'' ?>><?= e($t['name']) ?></option>
                 <?php endforeach; ?>
+            </select>
+            <select class="form-select" style="width:160px" id="playerTypeFilter" onchange="filterPlayerType(this.value)">
+                <option value="">All Types</option>
+                <option value="account" <?= ($_GET['type'] ?? '') === 'account' ? 'selected' : '' ?>>Account Players</option>
+                <option value="guest" <?= ($_GET['type'] ?? '') === 'guest' ? 'selected' : '' ?>>Guests</option>
             </select>
         </div>
     </div>
@@ -98,7 +103,7 @@ require_once __DIR__ . '/../includes/header.php';
                 <?php foreach ($players as $i => $p): 
                     $isGuest = $p['is_guest'] ?? false;
                 ?>
-                <tr>
+                <tr data-type="<?= $isGuest ? 'guest' : 'account' ?>">
                     <td class="text-muted text-sm"><?= $i+1 ?></td>
                     <td>
                         <div class="player-cell">
@@ -134,5 +139,22 @@ require_once __DIR__ . '/../includes/header.php';
     require_once __DIR__ . '/../includes/pagination.php';
     ?>
 </div>
+
+<script>
+function filterPlayerType(type) {
+    var rows = document.querySelectorAll('#orgPlayersTable tbody tr[data-type]');
+    rows.forEach(function(row) {
+        if (!type || row.getAttribute('data-type') === type) {
+            row.style.display = '';
+        } else {
+            row.style.display = 'none';
+        }
+    });
+}
+document.addEventListener('DOMContentLoaded', function() {
+    var saved = document.getElementById('playerTypeFilter');
+    if (saved && saved.value) filterPlayerType(saved.value);
+});
+</script>
 
 <?php require_once __DIR__ . '/../includes/footer.php'; ?>

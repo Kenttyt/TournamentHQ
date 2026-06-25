@@ -22,6 +22,8 @@ $totalTourneys  = count($myTournaments);
 $activeTourneys = count(array_filter($myTournaments, fn($t) => $t['status'] === 'ongoing'));
 $completedT     = count(array_filter($myTournaments, fn($t) => $t['status'] === 'completed'));
 
+$myTourneyIds = array_column($myTournaments, 'id');
+
 require_once __DIR__ . '/../includes/header.php';
 ?>
 

@@ -474,3 +474,52 @@ function copyToClipboard(text, btn) {
         toast('Copied to clipboard', 'success', 2000);
     }
 }
+
+/* ============================================================
+   LIGHTBOX (payment proof image preview)
+   ============================================================ */
+function openLightbox(src) {
+    var overlay = document.getElementById('proofLightbox');
+    if (!overlay) return;
+    var img = overlay.querySelector('img');
+    img.src = src;
+    overlay.classList.add('open');
+    document.body.style.overflow = 'hidden';
+}
+function closeLightbox() {
+    var overlay = document.getElementById('proofLightbox');
+    if (!overlay) return;
+    overlay.classList.remove('open');
+    document.body.style.overflow = '';
+}
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') closeLightbox();
+});
+
+/* ============================================================
+   BULK APPROVE / REJECT
+   ============================================================ */
+function toggleAllBulkChecks(checkbox, tid) {
+    document.querySelectorAll('.bulk-check[data-tournament="' + tid + '"]').forEach(function(cb) {
+        cb.checked = checkbox.checked;
+    });
+}
+function getCheckedIds(tid) {
+    var ids = [];
+    document.querySelectorAll('.bulk-check[data-tournament="' + tid + '"]:checked').forEach(function(cb) {
+        ids.push(cb.value);
+    });
+    return ids;
+}
+function bulkApprove(tid) {
+    var ids = getCheckedIds(tid);
+    if (!ids.length) { alert('Select at least one player.'); return; }
+    document.getElementById('bulkApproveIds_' + tid).value = ids.join(',');
+    document.getElementById('bulkApproveForm_' + tid).submit();
+}
+function bulkReject(tid) {
+    var ids = getCheckedIds(tid);
+    if (!ids.length) { alert('Select at least one player.'); return; }
+    document.getElementById('bulkRejectIds_' + tid).value = ids.join(',');
+    document.getElementById('bulkRejectForm_' + tid).submit();
+}

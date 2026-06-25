@@ -275,6 +275,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit;
     }
 
+    if ($action === 'bulk_approve' || $action === 'bulk_reject') {
+        $tid = (int) ($_POST['tournament_id'] ?? 0);
+        $regIdsRaw = $_POST['reg_ids'] ?? '';
+        $regIds = array_filter(array_map('intval', explode(',', $regIdsRaw)));
+        if ($tid && !empty($regIds) && isTournamentOwnedBy($tid, $userId)) {
+            $count = 0;
+            foreach ($regIds as $regId) {
+                $chk = db()->prepare("SELECT COUNT(*) FROM tournament_guests WHERE id = ? AND tournament_id = ?");
+                $chk->execute([$regId, $tid]);
+                $regType = $chk->fetchColumn() ? 'guest' : 'player';
+                if ($action === 'bulk_approve') {
+                    if (approveTournamentRegistration($tid, $regType, $regId, true)) $count++;
+                } else {
+                    if (rejectTournamentRegistration($tid, $regType, $regId)) $count++;
+                }
+            }
+            $verb = $action === 'bulk_approve' ? 'Approved' : 'Declined';
+            setFlash('success', $verb . ' ' . $count . ' registration(s).');
+        }
+        header('Location: tournaments.php');
+        exit;
+    }
+
     if ($action === 'remove_registration') {
         $tid = (int) ($_POST['tournament_id'] ?? 0);
         $regType = $_POST['reg_type'] ?? '';
@@ -390,6 +413,15 @@ function renderTournamentCard(array $t, int $userId): void {
         <?php if ($hasPending): ?>
         <div style="margin-bottom:14px;padding:12px;background:rgba(255,200,87,0.08);border:1px solid rgba(255,200,87,0.25);border-radius:var(--radius-sm)">
             <div class="text-xs text-muted mb-8" style="text-transform:uppercase;letter-spacing:.5px;color:var(--warning)">Pending approval</div>
+            <div style="display:flex;gap:8px;margin-bottom:12px;align-items:center;flex-wrap:wrap">
+                <label style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--text-300);cursor:pointer">
+                    <input type="checkbox" id="selectAllPending_<?= $t['id'] ?>" onclick="toggleAllBulkChecks(this, <?= $t['id'] ?>)"> Select all
+                </label>
+                <button type="button" class="btn btn-primary btn-sm" style="font-size:11px;padding:4px 12px"
+                    onclick="bulkApprove(<?= $t['id'] ?>)">Approve Selected</button>
+                <button type="button" class="btn btn-outline btn-sm" style="font-size:11px;padding:4px 12px;color:var(--warning);border-color:var(--warning)"
+                    onclick="bulkReject(<?= $t['id'] ?>)" data-confirm="Decline all selected players?">Decline Selected</button>
+            </div>
             <div style="display:flex;flex-direction:column;gap:12px">
             <?php foreach ($pendingGroups as $group):
                 $proofUrl = paymentProofPublicUrl($group['payment_proof_path'] ?? null);
@@ -405,9 +437,9 @@ function renderTournamentCard(array $t, int $userId): void {
                         <?php if ($isPdf): ?>
                         <a href="<?= e($proofUrl) ?>" target="_blank" rel="noopener" class="btn btn-outline btn-sm" style="font-size:11px">View PDF — <?= e($group['payment_proof_original_name'] ?? 'receipt') ?></a>
                         <?php else: ?>
-                        <a href="<?= e($proofUrl) ?>" target="_blank" rel="noopener">
-                            <img src="<?= e($proofUrl) ?>" alt="Payment proof" style="max-width:100%;max-height:160px;border-radius:var(--radius-sm);border:1px solid var(--border);display:block">
-                        </a>
+                        <img src="<?= e($proofUrl) ?>" alt="Payment proof" class="proof-thumb"
+                             style="max-width:100%;max-height:160px;border-radius:var(--radius-sm);border:1px solid var(--border);display:block;cursor:pointer"
+                             onclick="openLightbox(this.src)">
                         <div class="text-xs text-muted" style="margin-top:4px"><?= e($group['payment_proof_original_name'] ?? '') ?></div>
                         <?php endif; ?>
                     </div>
@@ -419,12 +451,15 @@ function renderTournamentCard(array $t, int $userId): void {
                         $displayName = trim($pl['first_name'] . ' ' . $pl['last_name']);
                     ?>
                         <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;padding:6px 8px;background:var(--bg-800);border-radius:var(--radius-sm)">
-                            <span style="font-size:12px;font-weight:600;color:var(--text-200)">
-                                <?= e($displayName) ?>
-                                <?php if (!empty($pl['club'])): ?>
-                                <span class="text-muted" style="font-weight:500"> · <?= e($pl['club']) ?></span>
-                                <?php endif; ?>
-                            </span>
+                            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;flex:1;min-width:0">
+                                <input type="checkbox" class="bulk-check" data-tournament="<?= $t['id'] ?>" value="<?= (int) $pl['reg_id'] ?>">
+                                <span style="font-size:12px;font-weight:600;color:var(--text-200)">
+                                    <?= e($displayName) ?>
+                                    <?php if (!empty($pl['club'])): ?>
+                                    <span class="text-muted" style="font-weight:500"> · <?= e($pl['club']) ?></span>
+                                    <?php endif; ?>
+                                </span>
+                            </label>
                             <div style="display:flex;gap:6px">
                                 <form method="POST" style="display:inline">
                                     <input type="hidden" name="action" value="approve_registration">
@@ -452,7 +487,10 @@ function renderTournamentCard(array $t, int $userId): void {
                 $displayName = trim($pr['first_name'] . ' ' . $pr['last_name']);
             ?>
                 <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;padding:8px 10px;background:var(--bg-700);border-radius:var(--radius-sm)">
-                    <div style="font-size:12px;font-weight:600;color:var(--text-200)"><?= e($displayName) ?></div>
+                    <label style="display:flex;align-items:center;gap:6px;cursor:pointer;flex:1;min-width:0">
+                        <input type="checkbox" class="bulk-check" data-tournament="<?= $t['id'] ?>" value="<?= (int) $pr['reg_id'] ?>">
+                        <div style="font-size:12px;font-weight:600;color:var(--text-200)"><?= e($displayName) ?></div>
+                    </label>
                     <div style="display:flex;gap:6px">
                         <form method="POST" style="display:inline">
                             <input type="hidden" name="action" value="approve_registration">
@@ -476,6 +514,19 @@ function renderTournamentCard(array $t, int $userId): void {
             </div>
         </div>
         <?php endif; ?>
+
+        <form id="bulkApproveForm_<?= $t['id'] ?>" method="POST" style="display:none">
+            <input type="hidden" name="action" value="bulk_approve">
+            <input type="hidden" name="tournament_id" value="<?= $t['id'] ?>">
+            <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
+            <input type="hidden" name="reg_ids" id="bulkApproveIds_<?= $t['id'] ?>">
+        </form>
+        <form id="bulkRejectForm_<?= $t['id'] ?>" method="POST" style="display:none">
+            <input type="hidden" name="action" value="bulk_reject">
+            <input type="hidden" name="tournament_id" value="<?= $t['id'] ?>">
+            <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
+            <input type="hidden" name="reg_ids" id="bulkRejectIds_<?= $t['id'] ?>">
+        </form>
 
         <?php if (!empty($tPlayers) || !empty($tGuests)): ?>
         <details style="margin-bottom:14px;border:1px solid var(--border);border-radius:var(--radius-sm);overflow:hidden;background:var(--bg-900)">
@@ -581,10 +632,7 @@ require_once __DIR__ . '/../includes/header.php';
     <?php if (!empty($activeTournaments)): ?>
     <div style="margin-bottom: 28px;">
         <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px;">
-            <div>
-                <div style="font-size:18px;font-weight:700;color:var(--text-100)">Active Tournaments</div>
-                <div style="font-size:13px;color:var(--text-400);">Upcoming, ongoing, and cancelled tournaments appear here.</div>
-            </div>
+            <div style="font-size:18px;font-weight:700;color:var(--text-100)">Active Tournaments</div>
         </div>
         <div class="tournament-grid">
             <?php foreach ($activeTournaments as $t): renderTournamentCard($t, $userId); endforeach; ?>
@@ -595,10 +643,7 @@ require_once __DIR__ . '/../includes/header.php';
     <?php if (!empty($completedTournaments)): ?>
     <div style="margin-bottom: 28px;">
         <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px;">
-            <div>
-                <div style="font-size:18px;font-weight:700;color:var(--text-100)">Completed Tournaments</div>
-                <div style="font-size:13px;color:var(--text-400);">Finished tournaments are shown separately below.</div>
-            </div>
+            <div style="font-size:18px;font-weight:700;color:var(--text-100)">Completed Tournaments</div>
         </div>
         <div class="tournament-grid">
             <?php foreach ($completedTournaments as $t): renderTournamentCard($t, $userId); endforeach; ?>
@@ -606,6 +651,11 @@ require_once __DIR__ . '/../includes/header.php';
     </div>
     <?php endif; ?>
 <?php endif; ?>
+
+<div id="proofLightbox" class="lightbox-overlay" onclick="closeLightbox()">
+    <button class="lightbox-close" onclick="closeLightbox()">&times;</button>
+    <img src="" alt="Payment proof">
+</div>
 
 <?php
 $baseUrl = '/TournamentHQ/organizer/tournaments.php' . ($statusFilter ? '?status=' . urlencode($statusFilter) : '');
@@ -622,8 +672,11 @@ require_once __DIR__ . '/../includes/pagination.php';
         <form method="POST">
             <input type="hidden" name="action" value="create">
             <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
-                        <input type="text" name="name" class="form-control" required placeholder="Tournament name">
-                    </div>
+        <div class="modal-body">
+                <div class="form-group">
+                    <label class="form-label">Tournament Name *</label>
+                    <input type="text" name="name" class="form-control" required placeholder="Tournament name">
+                </div>
                     <div class="form-group" style="flex:1">
                         <label class="form-label">Sport *</label>
                         <select name="sport" id="createSport" class="form-select" onchange="toggleCreateCustomSport(this.value)" required style="height: 44px; background: var(--bg-600); border: 1px solid var(--border); color: var(--text-100);">
@@ -637,7 +690,6 @@ require_once __DIR__ . '/../includes/pagination.php';
                         <label class="form-label">Custom Sport *</label>
                         <input type="text" name="sport_custom" class="form-control" placeholder="e.g. Karate">
                     </div>
-                </div>
                 <div class="form-group">
                     <label class="form-label">Description</label>
                     <textarea name="description" class="form-control" rows="2" placeholder="Brief description"></textarea>
@@ -802,8 +854,7 @@ require_once __DIR__ . '/../includes/pagination.php';
                     <?php $namePrefix = ''; $values = []; include __DIR__ . '/../includes/tournament_prize_fields.php'; ?>
                 </div>
             </div>
-        </form>
-        <div class="modal-footer" style="justify-content: space-between;">
+            <div class="modal-footer" style="justify-content: space-between;">
             <form method="POST" style="display: inline; margin: 0;" onsubmit="return confirm('Delete this tournament? This cannot be undone. All registrations and matches will be deleted.');">
                 <input type="hidden" name="action" value="delete">
                 <input type="hidden" name="tournament_id" id="etDeleteId">
@@ -818,6 +869,7 @@ require_once __DIR__ . '/../includes/pagination.php';
                 <button type="button" class="btn btn-primary" onclick="document.getElementById('editTournamentForm').submit()">Save Changes</button>
             </div>
         </div>
+        </form>
     </div>
 </div>
 

@@ -1046,6 +1046,35 @@ textarea.form-control { min-height: 100px; resize: vertical; }
 }
 
 /* ============================================================
+   LIGHTBOX
+   ============================================================ */
+.lightbox-overlay {
+    position: fixed; inset: 0; z-index: 1100;
+    background: rgba(0,0,0,0.85); backdrop-filter: blur(8px);
+    display: flex; align-items: center; justify-content: center;
+    padding: 20px; cursor: zoom-out;
+    opacity: 0; pointer-events: none;
+    transition: opacity 0.25s ease;
+}
+.lightbox-overlay.open { opacity: 1; pointer-events: all; }
+.lightbox-overlay img {
+    max-width: 90vw; max-height: 85vh;
+    border-radius: var(--radius-md);
+    box-shadow: 0 8px 40px rgba(0,0,0,0.5);
+    transform: scale(0.92); transition: transform 0.25s ease;
+    object-fit: contain;
+}
+.lightbox-overlay.open img { transform: scale(1); }
+.lightbox-close {
+    position: absolute; top: 16px; right: 16px;
+    background: rgba(255,255,255,0.1); border: none; color: #fff;
+    width: 40px; height: 40px; border-radius: 50%;
+    font-size: 20px; cursor: pointer; display: flex; align-items: center; justify-content: center;
+    transition: background 0.2s;
+}
+.lightbox-close:hover { background: rgba(255,255,255,0.2); }
+
+/* ============================================================
    SEARCH & FILTER BAR
    ============================================================ */
 .filter-bar {

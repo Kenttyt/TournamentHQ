@@ -222,10 +222,11 @@ function bracketGroupKeyFromMatch(array $match): string {
 }
 
 /**
- * Get top 2 players from each group based on group standings
- * @return list<array{type:string,id:int,first_name:string,last_name:string}>
+ * Get top N players from each group based on group standings
+ * @return list<array{type:string,id:int,first_name:string,last_name:string,group_label:string,rank:int}>
  */
-function getGroupStageQualifiers(int $tournamentId): array {
+function getGroupStageQualifiers(int $tournamentId, int $qualifiersPerGroup = 2): array {
+    $qualifiersPerGroup = max(1, min(4, $qualifiersPerGroup));
     $groups = buildBracketGroups($tournamentId);
     $qualifiers = [];
     
@@ -304,15 +305,18 @@ function getGroupStageQualifiers(int $tournamentId): array {
             return $b['sets_won'] <=> $a['sets_won'];
         });
         
-        // Take top 2
-        $top2 = array_slice($standings, 0, 2);
-        foreach ($top2 as $player) {
+        // Take top N
+        $top = array_slice($standings, 0, $qualifiersPerGroup);
+        $rank = 0;
+        foreach ($top as $player) {
+            $rank++;
             $qualifiers[] = [
                 'type' => $player['type'],
                 'id' => $player['id'],
                 'first_name' => $player['first_name'],
                 'last_name' => $player['last_name'],
                 'group_label' => $group['label'],
+                'rank' => $rank,
             ];
         }
     }
@@ -352,13 +356,13 @@ function knockoutRoundName(int $matchCount): string {
     return 'Knockout Round';
 }
 
-function generateKnockoutStage(int $tournamentId, string $bracketType, bool $include3rdPlace = false): array {
+function generateKnockoutStage(int $tournamentId, string $bracketType, bool $include3rdPlace = false, int $qualifiersPerGroup = 2): array {
     $tournament = getTournamentById($tournamentId);
     if (!$tournament) {
         return ['ok' => false, 'message' => 'Tournament not found.'];
     }
     
-    $qualifiers = getGroupStageQualifiers($tournamentId);
+    $qualifiers = getGroupStageQualifiers($tournamentId, $qualifiersPerGroup);
     $count = count($qualifiers);
     if ($count < 2) {
         return ['ok' => false, 'message' => 'Not enough qualifiers (at least 2 required) from the group stage to generate a knockout bracket.'];
@@ -367,50 +371,116 @@ function generateKnockoutStage(int $tournamentId, string $bracketType, bool $inc
     // Delete any existing knockout matches (round > 1)
     db()->prepare("DELETE FROM matches WHERE tournament_id = ? AND round > 1")->execute([$tournamentId]);
     
-    // Build seeded list: rank 1s in top half, rank 2s in bottom half.
-    // Standard bracket seeding pairs top-half vs bottom-half, so this guarantees
-    // every first-round match is R1 vs R2, and same-group opponents are separated.
+    // Build seeded list ensuring same-rank players never face each other in round 1.
+    // Strategy: pair rank-1s directly against rank-2s (from different groups) in each
+    // first-round match. Top seeds are placed on opposite halves so they can only
+    // meet in the Final.
     $bracketSize = 1;
     while ($bracketSize < $count) {
         $bracketSize *= 2;
     }
 
-    $rank1s = [];
-    $rank2s = [];
-    for ($i = 0; $i < $count; $i++) {
-        if ($i % 2 === 0) {
-            $rank1s[] = $qualifiers[$i];
-        } else {
-            $rank2s[] = $qualifiers[$i];
+    // Group qualifiers by rank
+    $byRank = [];
+    foreach ($qualifiers as $q) {
+        $byRank[$q['rank']][] = $q;
+    }
+    ksort($byRank);
+
+    // Shuffle within each rank group so bracket draw is randomised
+    foreach ($byRank as &$rankGroup) {
+        shuffle($rankGroup);
+    }
+    unset($rankGroup);
+
+    // --- Build bracket slots ---
+    // Pairing rules by qualifiers_per_group:
+    //   1 qualifier: Rank 1 vs Rank 1 (plain seeding)
+    //   2 qualifiers: Rank 1 vs Rank 2
+    //   3 qualifiers: Rank 1 vs Rank 3, and Rank 2 vs Rank 2
+    $rankGroups = $byRank; // keyed by rank number
+    $rank1s = $rankGroups[1] ?? [];
+    $rank2s = $rankGroups[2] ?? [];
+    $rank3s = $rankGroups[3] ?? [];
+
+    // Default numMatches (may be overridden in the 3-qualifier path)
+    $numMatches = $bracketSize / 2;
+
+    if ($qualifiersPerGroup >= 3 && !empty($rank3s)) {
+        // Rank 1 vs Rank 3, then Rank 2 vs Rank 2 matches
+        $numR1R3 = max(count($rank1s), count($rank3s));
+        $numR2R2 = (int) ceil(count($rank2s) / 2);
+        $actualMatches = $numR1R3 + $numR2R2;
+        // Re-calculate bracket size to fit all matches
+        $bracketSize = 1;
+        while ($bracketSize < $actualMatches * 2) {
+            $bracketSize *= 2;
         }
-    }
+        $numMatches = $bracketSize / 2;
 
-    // Randomize positions within each half — maintains R1 vs R2 constraint
-    // but shuffles which specific R1/R2 faces which opponent.
-    shuffle($rank1s);
-    shuffle($rank2s);
+        // Pair rank1[i] vs rank3[i]
+        $pairs = [];
+        $r3Padded = array_pad($rank3s, count($rank1s), null);
+        for ($i = 0; $i < count($rank1s); $i++) {
+            $pairs[] = [$rank1s[$i], $r3Padded[$i]];
+        }
+        // Pair rank2[i] vs rank2[i+1]
+        for ($i = 0; $i + 1 < count($rank2s); $i += 2) {
+            $pairs[] = [$rank2s[$i], $rank2s[$i + 1]];
+        }
+        // If odd rank2 count, last rank2 gets a bye
+        if (count($rank2s) % 2 === 1) {
+            $pairs[] = [end($rank2s), null];
+        }
+        // Pad remaining bracket slots with byes
+        while (count($pairs) < $numMatches) {
+            $pairs[] = [null, null];
+        }
+    } else {
+        // Default: Rank 1 vs Rank 2 (or plain seeding for rank-1 only)
+        $primarySeeds   = $rank1s;
+        $secondarySeeds = [];
+        foreach ($rankGroups as $rank => $players) {
+            if ($rank === array_key_first($rankGroups)) continue;
+            foreach ($players as $p) {
+                $secondarySeeds[] = $p;
+            }
+        }
+        // Pad both lists so they each fill half the bracket
+        while (count($primarySeeds) < $numMatches) {
+            $primarySeeds[] = null;
+        }
+        while (count($secondarySeeds) < $numMatches) {
+            $secondarySeeds[] = null;
+        }
 
-    $halfSize = $bracketSize / 2;
-    $seeded = array_merge(
-        array_pad($rank1s, $halfSize, null),
-        array_pad($rank2s, $halfSize, null)
-    );
+        // Apply standard seeding within the primary group so that the best seeds
+        // end up on opposite sides of the bracket (only meet in the Final).
+        $primaryOrder = standardBracketSeeding($numMatches);
+        $orderedPrimary = [];
+        foreach ($primaryOrder as $pos) {
+            $orderedPrimary[] = $primarySeeds[$pos - 1] ?? null;
+        }
 
-    
-    // Get standard bracket seeding order
-    $seedOrder = standardBracketSeeding($bracketSize);
+        // Similarly order secondary seeds (mirror so best secondary opposes best primary)
+        $secondaryOrder = array_reverse($primaryOrder);
+        $orderedSecondary = [];
+        foreach ($secondaryOrder as $pos) {
+            $orderedSecondary[] = $secondarySeeds[$pos - 1] ?? null;
+        }
 
-    
-    // Place players into bracket slots using seeding order
-    $slots = [];
-    foreach ($seedOrder as $seedNum) {
-        $slots[] = $seeded[$seedNum - 1] ?? null; // seedNum is 1-indexed
-    }
-    
-    // Create first-round match pairs from adjacent slots
-    $pairs = [];
-    for ($i = 0; $i < count($slots); $i += 2) {
-        $pairs[] = [$slots[$i], $slots[$i + 1]];
+        // Build final slot list: each match gets one primary + one secondary player
+        $slots = [];
+        for ($i = 0; $i < $numMatches; $i++) {
+            $slots[] = $orderedPrimary[$i];
+            $slots[] = $orderedSecondary[$i];
+        }
+
+        // Create first-round match pairs from adjacent slots
+        $pairs = [];
+        for ($i = 0; $i < count($slots); $i += 2) {
+            $pairs[] = [$slots[$i], $slots[$i + 1]];
+        }
     }
     
     $tableNum = 1;

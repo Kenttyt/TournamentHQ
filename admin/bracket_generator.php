@@ -49,14 +49,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($action === 'generate_knockout' && $postTid) {
         $knockoutFormat = trim($_POST['knockout_format'] ?? 'single_elimination');
         $include3rdPlace = !empty($_POST['include_3rd_place']);
-        $result = generateKnockoutStage($postTid, $knockoutFormat, $include3rdPlace);
+        $qualifiersPerGroup = max(1, min(3, (int)($_POST['qualifiers_per_group'] ?? 2)));
+        $result = generateKnockoutStage($postTid, $knockoutFormat, $include3rdPlace, $qualifiersPerGroup);
         if ($result['ok']) {
             $formatLabel = $knockoutFormat === 'single_elimination' ? 'Single Elimination' : 'Double Elimination';
             setFlash('success', 'Group stage finished! Generated ' . $formatLabel . ' knockout stage with ' . $result['matches'] . ' match(es) for ' . $result['round_name'] . '.');
         } else {
             setFlash('danger', $result['message'] ?? 'Could not generate knockout stage.');
         }
-        header('Location: bracket_generator.php?tournament_id=' . $postTid);
+        header('Location: bracket_generator.php?tournament_id=' . $postTid . '&qualifiers_per_group=' . $qualifiersPerGroup);
         exit;
     }
 

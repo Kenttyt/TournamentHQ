@@ -318,7 +318,7 @@ $googleEnabled = isGoogleOAuthConfigured();
                         <?php else: ?>
                             <div></div>
                         <?php endif; ?>
-                        <a href="/TournamentHQ/forgot-password.php" style="color: var(--primary-light); font-size: 12px; font-weight: 500;" class="hover-underline">Forgot password?</a>
+                        <a href="/TournamentHQ/forgot-password.php<?= $roleParam === 'organizer' ? '?role=organizer' : '' ?>" style="color: var(--primary-light); font-size: 12px; font-weight: 500;" class="hover-underline">Forgot password?</a>
                     </div>
                 </div>
                 <?php endif; ?>

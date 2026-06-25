@@ -1,7 +1,7 @@
 <?php
 /** @var string $authPageTitle */
 /** @var string $authPageSubtitle */
-function authPublicHeader(string $title, string $subtitle = ''): void {
+function authPublicHeader(string $title, string $subtitle = '', string $backLinkHtml = ''): void {
     ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -73,6 +73,11 @@ function authPublicHeader(string $title, string $subtitle = ''): void {
 <body>
 <div class="auth-public-page">
     <div class="auth-public-card">
+        <?php if (!empty($backLinkHtml)): ?>
+            <div style="margin-bottom: 16px;">
+                <?= $backLinkHtml ?>
+            </div>
+        <?php endif; ?>
         <h1><?= e($title) ?></h1>
         <?php if ($subtitle !== ''): ?><p class="lead"><?= e($subtitle) ?></p><?php endif; ?>
     <?php

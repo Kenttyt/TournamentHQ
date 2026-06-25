@@ -229,6 +229,20 @@ require_once __DIR__ . '/../includes/header.php';
                     <option value="Badminton">Badminton</option>
                     <option value="Pickleball">Pickleball</option>
                 </select>
+                <select id="filterCategory" class="form-select" style="width: auto; min-width: 140px; height: 34px; font-size: 12px; padding: 4px 10px;">
+                    <option value="">All Categories</option>
+                    <?php
+                    $cats = [];
+                    foreach ($joinableTournaments as $t) {
+                        $cat = trim($t['category'] ?? '');
+                        if ($cat && !in_array($cat, $cats)) $cats[] = $cat;
+                    }
+                    sort($cats);
+                    foreach ($cats as $cat):
+                    ?>
+                        <option value="<?= e($cat) ?>"><?= e($cat) ?></option>
+                    <?php endforeach; ?>
+                </select>
                 <select id="filterFormat" class="form-select" style="width: auto; min-width: 140px; height: 34px; font-size: 12px; padding: 4px 10px;">
                     <option value="">All Formats</option>
                     <option value="Singles">Singles</option>
@@ -265,7 +279,7 @@ require_once __DIR__ . '/../includes/header.php';
                             $rowCatLower = strtolower($t['category'] ?? '');
                             $rowFormat = !empty($t['is_team_event']) ? 'Team' : (strpos($rowCatLower, 'double') !== false ? 'Doubles' : 'Singles');
                         ?>
-                            <tr data-sport="<?= $rowSport ?>" data-format="<?= $rowFormat ?>">
+                            <tr data-sport="<?= $rowSport ?>" data-format="<?= $rowFormat ?>" data-category="<?= $rowCategory ?>">
                                 <td>
                                     <div style="font-weight: 700; color: var(--text-100);">
                                         <a href="tournament_bracket.php?tournament_id=<?= $t['id'] ?>" style="color: var(--primary-light);" class="hover-underline">
@@ -834,22 +848,26 @@ document.querySelectorAll('.js-join-tournament-btn').forEach(function (btn) {
 
 (function() {
     var sportSel = document.getElementById('filterSport');
+    var categorySel = document.getElementById('filterCategory');
     var formatSel = document.getElementById('filterFormat');
     var searchInput = document.getElementById('filterSearch');
     var table = document.getElementById('exploreTable');
-    if (!sportSel || !formatSel || !searchInput || !table) return;
+    if (!sportSel || !categorySel || !formatSel || !searchInput || !table) return;
 
     function applyFilters() {
         var sport = sportSel.value.toLowerCase();
+        var category = categorySel.value.toLowerCase();
         var format = formatSel.value.toLowerCase();
         var search = searchInput.value.toLowerCase();
         var rows = table.querySelectorAll('tbody tr');
         rows.forEach(function(row) {
             var rowSport = (row.getAttribute('data-sport') || '').toLowerCase();
+            var rowCategory = (row.getAttribute('data-category') || '').toLowerCase();
             var rowFormat = (row.getAttribute('data-format') || '').toLowerCase();
             var rowText = row.textContent.toLowerCase();
             var show = true;
             if (sport && rowSport !== sport) show = false;
+            if (category && rowCategory !== category) show = false;
             if (format && rowFormat !== format) show = false;
             if (search && rowText.indexOf(search) === -1) show = false;
             row.style.display = show ? '' : 'none';
@@ -857,6 +875,7 @@ document.querySelectorAll('.js-join-tournament-btn').forEach(function (btn) {
     }
 
     sportSel.addEventListener('change', applyFilters);
+    categorySel.addEventListener('change', applyFilters);
     formatSel.addEventListener('change', applyFilters);
     searchInput.addEventListener('input', applyFilters);
 })();

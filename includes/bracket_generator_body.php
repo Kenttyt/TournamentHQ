@@ -294,21 +294,21 @@ if (!empty($bracketGroups)) {
                     <?php endif; ?>
                 </p>
 
-                <?php 
-                $qualifiers = getGroupStageQualifiers($tid);
+                <?php
+                $qualifiers = getGroupStageQualifiers($tid, 3);
                 $rank1s = [];
                 $rank2s = [];
-                foreach ($qualifiers as $idx => $player) {
-                    if ($idx % 2 === 0) {
-                        $rank1s[] = $player;
-                    } else {
-                        $rank2s[] = $player;
-                    }
+                $rank3s = [];
+                foreach ($qualifiers as $player) {
+                    $r = (int)($player['rank'] ?? 1);
+                    if ($r === 1) $rank1s[] = $player;
+                    elseif ($r === 2) $rank2s[] = $player;
+                    elseif ($r === 3) $rank3s[] = $player;
                 }
                 if (!empty($qualifiers)):
                 ?>
-                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 24px;">
-                        <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 16px;">
+                    <div id="qualifierPreview" style="display: grid; gap: 16px; margin-bottom: 24px;">
+                        <div class="qualifier-section" data-rank="1" style="background: rgba(255,255,255,0.02); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 16px;">
                             <h4 style="margin: 0 0 12px 0; color: var(--success); font-size: 13px; font-weight: 700; display: flex; align-items: center; gap: 8px;">
                                 <span>🥇 Rank 1 Qualifiers</span>
                                 <span class="badge badge-success" style="font-size: 10px; padding: 2px 6px;"><?= count($rank1s) ?></span>
@@ -319,7 +319,7 @@ if (!empty($bracketGroups)) {
                                 <?php endforeach; ?>
                             </ul>
                         </div>
-                        <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 16px;">
+                        <div class="qualifier-section" data-rank="2" style="display: none; background: rgba(255,255,255,0.02); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 16px;">
                             <h4 style="margin: 0 0 12px 0; color: var(--accent); font-size: 13px; font-weight: 700; display: flex; align-items: center; gap: 8px;">
                                 <span>🥈 Rank 2 Qualifiers</span>
                                 <span class="badge badge-accent" style="font-size: 10px; padding: 2px 6px;"><?= count($rank2s) ?></span>
@@ -330,14 +330,37 @@ if (!empty($bracketGroups)) {
                                 <?php endforeach; ?>
                             </ul>
                         </div>
+                        <?php if (!empty($rank3s)): ?>
+                        <div class="qualifier-section" data-rank="3" style="display: none; background: rgba(255,255,255,0.02); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 16px;">
+                            <h4 style="margin: 0 0 12px 0; color: #ffc107; font-size: 13px; font-weight: 700; display: flex; align-items: center; gap: 8px;">
+                                <span>🥉 Rank 3 Qualifiers</span>
+                                <span class="badge" style="font-size: 10px; padding: 2px 6px; background: rgba(255,193,7,0.15); color: #ffc107;"><?= count($rank3s) ?></span>
+                            </h4>
+                            <ul style="margin: 0; padding-left: 18px; font-size: 12px; color: var(--text-200); line-height: 1.8;">
+                                <?php foreach ($rank3s as $p): ?>
+                                    <li><strong><?= e($p['first_name'] . ' ' . $p['last_name']) ?></strong> <span class="text-muted" style="font-size: 11px;">(<?= e($p['group_label']) ?>)</span></li>
+                                <?php endforeach; ?>
+                            </ul>
+                        </div>
+                        <?php endif; ?>
                     </div>
                 <?php endif; ?>
                 
-                <form method="POST" action="<?= e($formAction) ?>" id="knockoutGenForm" onsubmit="return confirm('Generate knockout bracket? This will fetch Rank 1 & Rank 2 from each group and create matches.');">
+                <form method="POST" action="<?= e($formAction) ?>" id="knockoutGenForm">
                     <input type="hidden" name="action" value="generate_knockout">
                     <input type="hidden" name="tournament_id" value="<?= $tid ?>">
                     <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
                     <div style="display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-end;">
+                        <div class="form-group" style="margin: 0; min-width: 200px;">
+                            <label class="form-label">Qualifiers Per Group</label>
+                            <select name="qualifiers_per_group" class="form-select" id="qualifiersPerGroup" onchange="updateQualifierPreview()">
+                                <?php $selQPG = max(1, min(3, (int)($_GET['qualifiers_per_group'] ?? $_POST['qualifiers_per_group'] ?? 2))); ?>
+                                <option value="1"<?= $selQPG === 1 ? ' selected' : '' ?>>Rank 1 only</option>
+                                <option value="2"<?= $selQPG === 2 ? ' selected' : '' ?>>Rank 1 &amp; Rank 2</option>
+                                <option value="3"<?= $selQPG === 3 ? ' selected' : '' ?>>Rank 1, 2 &amp; 3</option>
+                            </select>
+                            <p id="qualifierHint" style="margin: 6px 0 0 0; font-size: 11px; color: var(--text-400); line-height: 1.5;"></p>
+                        </div>
                         <div class="form-group" style="margin: 0; min-width: 200px;">
                             <label class="form-label">Knockout Format</label>
                             <select name="knockout_format" class="form-select">
@@ -407,6 +430,41 @@ if (!empty($bracketGroups)) {
             }
         });
     })();
+
+    function updateQualifierPreview() {
+        var sel = document.getElementById('qualifiersPerGroup');
+        if (!sel) return;
+        var val = parseInt(sel.value, 10);
+        var sections = document.querySelectorAll('.qualifier-section');
+        var visibleCount = 0;
+        sections.forEach(function(sec) {
+            var rank = parseInt(sec.getAttribute('data-rank'), 10);
+            var show = rank <= val;
+            sec.style.display = show ? '' : 'none';
+            if (show) visibleCount++;
+        });
+        // Update grid columns to match visible count
+        var grid = document.getElementById('qualifierPreview');
+        if (grid) {
+            grid.style.gridTemplateColumns = 'repeat(' + Math.max(1, visibleCount) + ', 1fr)';
+        }
+        // Update hint text
+        var hint = document.getElementById('qualifierHint');
+        if (hint) {
+            var hints = {
+                1: '🥇 Only group winners advance. Each Rank 1 faces another Rank 1 in the knockout bracket.',
+                2: '🥇🥈 Top 2 from each group advance. Rank 1 is paired against Rank 2 in Round 1.',
+                3: '🥇🥈🥉 Top 3 from each group advance. Rank 1 faces Rank 3, and Rank 2 faces Rank 2 in Round 1.'
+            };
+            hint.textContent = hints[val] || '';
+        }
+    }
+    // Run immediately so the preview matches the default dropdown value
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', updateQualifierPreview);
+    } else {
+        updateQualifierPreview();
+    }
     </script>
 
     <div id="knockoutLoadingOverlay" style="display:none; position:fixed; inset:0; z-index:9999; background:rgba(0,0,0,0.6); backdrop-filter:blur(4px); align-items:center; justify-content:center; flex-direction:column; gap:16px;">
@@ -419,13 +477,21 @@ if (!empty($bracketGroups)) {
     (function(){
         var form = document.getElementById('knockoutGenForm');
         if (!form) return;
-        form.addEventListener('submit', function(){
+        form.addEventListener('submit', function(e) {
+            var sel = document.getElementById('qualifiersPerGroup');
+            var val = sel ? parseInt(sel.value, 10) : 2;
+            var labels = { 1: 'Rank 1 only', 2: 'Rank 1 & Rank 2', 3: 'Rank 1, 2 & 3' };
+            var ok = confirm('Generate knockout bracket? This will fetch ' + (labels[val] || 'qualifiers') + ' from each group and create matches.');
+            if (!ok) {
+                e.preventDefault();
+                return;
+            }
             var overlay = document.getElementById('knockoutLoadingOverlay');
             if (overlay) { overlay.style.display = 'flex'; }
             var btn = document.getElementById('knockoutGenBtn');
             if (btn) { btn.disabled = true; btn.textContent = 'Generating...'; }
         });
-})();
+    })();
 </script>
 
 <div id="groupLoadingOverlay" style="display:none; position:fixed; inset:0; z-index:9999; background:rgba(0,0,0,0.6); backdrop-filter:blur(4px); align-items:center; justify-content:center; flex-direction:column; gap:16px;">
