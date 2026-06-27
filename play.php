@@ -251,7 +251,7 @@ try {
     <?php if (empty($featuredTournaments)): ?>
         <div class="empty-state">
             <i data-lucide="calendar-x"></i>
-            <p>No upcoming tournaments yet. Check back soon!</p>
+            <p>No upcoming tournaments yet. Check back soon!!!</p>
         </div>
     <?php else: ?>
         <div class="tournament-grid">
