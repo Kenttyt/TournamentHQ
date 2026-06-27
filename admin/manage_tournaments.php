@@ -286,7 +286,7 @@ require_once __DIR__ . '/../includes/header.php';
 $baseUrlParams = [];
 if ($search) $baseUrlParams[] = 'search=' . urlencode($search);
 if ($statusFilter) $baseUrlParams[] = 'status=' . urlencode($statusFilter);
-$baseUrl = '/TournamentHQ/admin/manage_tournaments.php' . ($baseUrlParams ? '?' . implode('&', $baseUrlParams) : '');
+$baseUrl = url('/admin/manage_tournaments.php') . ($baseUrlParams ? '?' . implode('&', $baseUrlParams) : '');
 require_once __DIR__ . '/../includes/pagination.php';
 ?>
 <div class="modal-overlay" id="createTournamentModal">

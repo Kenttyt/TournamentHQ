@@ -13,9 +13,9 @@ if ($user && in_array($role, ['organizer', 'player'], true)) {
     $notificationCount = getNotificationBadgeCount((int) $user['id'], $role);
 }
 
-// Get user's display name (first name and last name for players)
-$displayName = $user['username'] ?? 'User';
-$genderEmoji = '👤'; // Default emoji
+// Get user's display name
+$displayName = $user['display_name'] ?? $user['username'] ?? 'User';
+$genderEmoji = '👤';
 if ($role === 'player') {
     $stmt = db()->prepare("SELECT first_name, last_name, gender FROM players WHERE user_id = ? LIMIT 1");
     $stmt->execute([(int)$user['id']]);
@@ -23,7 +23,6 @@ if ($role === 'player') {
     if ($headerPlayer && !empty($headerPlayer['first_name'])) {
         $displayName = trim(($headerPlayer['first_name'] ?? '') . ' ' . ($headerPlayer['last_name'] ?? ''));
     }
-    // Set gender-based emoji
     if ($headerPlayer && !empty($headerPlayer['gender'])) {
         $gender = strtolower($headerPlayer['gender']);
         if ($gender === 'male') {
@@ -31,7 +30,7 @@ if ($role === 'player') {
         } elseif ($gender === 'female') {
             $genderEmoji = '👩';
         } else {
-            $genderEmoji = '🏳️‍🌈'; // LGBT flag for other
+            $genderEmoji = '🏳️‍🌈';
         }
     }
 }
@@ -40,28 +39,28 @@ if ($role === 'player') {
 $navLinks = [];
 if ($role === 'admin') {
     $navLinks = [
-        ['href' => '/TournamentHQ/admin/index.php',                'icon' => 'grid',        'label' => 'Dashboard'],
-        ['href' => '/TournamentHQ/admin/manage_users.php',         'icon' => 'users',       'label' => 'Users'],
-        ['href' => '/TournamentHQ/admin/manage_players.php',       'icon' => 'user-check',  'label' => 'Players'],
-        ['href' => '/TournamentHQ/admin/manage_tournaments.php',   'icon' => 'trophy',      'label' => 'Tournaments'],
-        ['href' => '/TournamentHQ/admin/bracket_generator.php',   'icon' => 'git-branch',  'label' => 'Auto Bracket'],
-        ['href' => '/TournamentHQ/admin/reports.php',              'icon' => 'bar-chart-2', 'label' => 'Reports'],
+        ['href' => url('/admin/index.php'),                'icon' => 'grid',        'label' => 'Dashboard'],
+        ['href' => url('/admin/manage_users.php'),         'icon' => 'users',       'label' => 'Users'],
+        ['href' => url('/admin/manage_players.php'),       'icon' => 'user-check',  'label' => 'Players'],
+        ['href' => url('/admin/manage_tournaments.php'),   'icon' => 'trophy',      'label' => 'Tournaments'],
+        ['href' => url('/admin/bracket_generator.php'),   'icon' => 'git-branch',  'label' => 'Auto Bracket'],
+        ['href' => url('/admin/reports.php'),              'icon' => 'bar-chart-2', 'label' => 'Reports'],
     ];
 } elseif ($role === 'organizer') {
     $navLinks = [
-        ['href' => '/TournamentHQ/organizer/index.php',       'icon' => 'grid',   'label' => 'Dashboard'],
-        ['href' => '/TournamentHQ/organizer/tournaments.php', 'icon' => 'trophy', 'label' => 'Tournaments'],
-        ['href' => '/TournamentHQ/organizer/umpire_access.php', 'icon' => 'key', 'label' => 'Umpire Access'],
-        ['href' => '/TournamentHQ/organizer/bracket_generator.php', 'icon' => 'git-branch', 'label' => 'Auto Bracket'],
-        ['href' => '/TournamentHQ/organizer/players.php',     'icon' => 'users',  'label' => 'Players'],
-        ['href' => '/TournamentHQ/organizer/notifications.php', 'icon' => 'bell', 'label' => 'Notifications', 'badge' => $notificationCount],
-        ['href' => '/TournamentHQ/organizer/profile.php', 'icon' => 'user', 'label' => 'Profile'],
+        ['href' => url('/organizer/index.php'),       'icon' => 'grid',   'label' => 'Dashboard'],
+        ['href' => url('/organizer/tournaments.php'), 'icon' => 'trophy', 'label' => 'Tournaments'],
+        ['href' => url('/organizer/umpire_access.php'), 'icon' => 'key', 'label' => 'Umpire Access'],
+        ['href' => url('/organizer/bracket_generator.php'), 'icon' => 'git-branch', 'label' => 'Auto Bracket'],
+        ['href' => url('/organizer/players.php'),     'icon' => 'users',  'label' => 'Players'],
+        ['href' => url('/organizer/notifications.php'), 'icon' => 'bell', 'label' => 'Notifications', 'badge' => $notificationCount],
+        ['href' => url('/organizer/profile.php'), 'icon' => 'user', 'label' => 'Profile'],
     ];
 } elseif ($role === 'player') {
     $navLinks = [
-        ['href' => '/TournamentHQ/player/index.php',    'icon' => 'grid',       'label' => 'Dashboard'],
-        ['href' => '/TournamentHQ/player/notifications.php', 'icon' => 'bell', 'label' => 'Notifications', 'badge' => $notificationCount],
-        ['href' => '/TournamentHQ/player/profile.php',  'icon' => 'user',       'label' => 'Profile'],
+        ['href' => url('/player/index.php'),    'icon' => 'grid',       'label' => 'Dashboard'],
+        ['href' => url('/player/notifications.php'), 'icon' => 'bell', 'label' => 'Notifications', 'badge' => $notificationCount],
+        ['href' => url('/player/profile.php'),  'icon' => 'user',       'label' => 'Profile'],
     ];
 }
 
@@ -78,7 +77,8 @@ $currentPage = basename($_SERVER['PHP_SELF']);
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@400;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://unpkg.com/lucide-static@latest/font/lucide.css">
-    <link rel="stylesheet" href="/TournamentHQ/assets/css/style.css">
+    <link rel="stylesheet" href="<?= url('/assets/css/style.css') ?>">
+    <script>window.BASE_URL = '<?= url() ?>';</script>
     <?= isset($extraCss) ? $extraCss : '' ?>
 </head>
 <body>
@@ -114,14 +114,14 @@ $currentPage = basename($_SERVER['PHP_SELF']);
 
     <div class="sidebar-footer">
         <div class="user-info">
-            <a href="/TournamentHQ/<?= ($role === 'player' ? 'player/profile.php' : ($role === 'organizer' ? 'organizer/profile.php' : 'admin/index.php')) ?>" class="user-avatar-link" title="View profile">
-                <div class="user-avatar"><?= strtoupper(substr($user['username'], 0, 1)) ?></div>
+            <a href="<?= url('/' . ($role === 'player' ? 'player/profile.php' : ($role === 'organizer' ? 'organizer/profile.php' : 'admin/index.php'))) ?>" class="user-avatar-link" title="View profile">
+                <div class="user-avatar"><?= strtoupper(substr($displayName, 0, 1)) ?></div>
             </a>
             <div class="user-details">
-                <span class="user-name"><?= e($user['username']) ?></span>
+                <span class="user-name"><?= e($displayName) ?></span>
             </div>
         </div>
-        <a href="/TournamentHQ/includes/logout.php" class="logout-btn logout-btn-text" title="Logout" onclick="return confirm('Are you sure you want to log out?');">
+        <a href="<?= url('/includes/logout.php') ?>" class="logout-btn logout-btn-text" title="Logout" onclick="return confirm('Are you sure you want to log out?');">
             Logout
         </a>
     </div>
@@ -137,7 +137,7 @@ $currentPage = basename($_SERVER['PHP_SELF']);
         <div class="topbar-title"><?= isset($pageTitle) ? e($pageTitle) : 'Dashboard' ?></div>
         <?php if ($user && in_array($role, ['organizer', 'player'], true)): ?>
         <div class="topbar-right">
-            <a href="/TournamentHQ/<?= $role ?>/notifications.php" class="notification-wrap" title="Notifications">
+            <a href="<?= url('/' . $role . '/notifications.php') ?>" class="notification-wrap" title="Notifications">
                 <button type="button" class="notification-bell" aria-label="Open notifications">
                     <i data-lucide="bell"></i>
                     <?php if ($notificationCount > 0): ?>

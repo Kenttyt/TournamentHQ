@@ -9,7 +9,7 @@ if (isLoggedIn()) {
 $featuredTournaments = [];
 try {
     $stmt = db()->prepare("
-        SELECT t.id, t.name, t.category, t.status, t.start_date, t.end_date, t.venue, t.max_players,
+        SELECT t.id, t.name, t.sport, t.category, t.status, t.start_date, t.end_date, t.venue, t.description, t.max_players,
                (SELECT COUNT(*) FROM tournament_players tp WHERE tp.tournament_id = t.id) as registered_count
         FROM tournaments t
         WHERE t.status IN ('upcoming', 'ongoing')
@@ -32,8 +32,8 @@ try {
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@400;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://unpkg.com/lucide-static@latest/font/lucide.css">
-    <link rel="stylesheet" href="/TournamentHQ/assets/css/style.css">
-    <link rel="stylesheet" href="/TournamentHQ/assets/css/public.css">
+    <link rel="stylesheet" href="<?= url('/assets/css/style.css') ?>">
+    <link rel="stylesheet" href="<?= url('/assets/css/public.css') ?>">
     <style>
         .home-container {
             max-width: 800px;
@@ -119,7 +119,7 @@ try {
             border-radius: var(--radius-md); padding: 20px;
             display: flex; flex-direction: column; gap: 12px;
             transition: border-color 0.2s ease, background 0.2s ease;
-            text-decoration: none; color: inherit;
+            text-decoration: none; color: inherit; cursor: pointer;
         }
         .tournament-card:hover {
             border-color: rgba(108,99,255,0.3);
@@ -167,18 +167,22 @@ try {
             color: var(--text-400); font-size: 14px;
         }
         .empty-state i { width: 40px; height: 40px; color: var(--text-400); margin-bottom: 12px; display: block; margin-left: auto; margin-right: auto; }
+
+        @media (max-width: 640px) {
+            #bracketModal > div { margin: 16px; }
+        }
     </style>
 </head>
 <body>
 
 <header class="site-header">
     <div class="nav-container">
-        <a href="/TournamentHQ/index.php" class="brand-logo">
+        <a href="<?= url('/index.php') ?>" class="brand-logo">
             <i data-lucide="trophy"></i>
             <span>TournamentHQ<em>.</em></span>
         </a>
         <nav class="nav-links">
-            <a href="/TournamentHQ/login.php" class="nav-login">
+            <a href="<?= url('/login.php') ?>" class="nav-login">
                 <i data-lucide="log-in" style="width:16px;height:16px;"></i> Login
             </a>
         </nav>
@@ -252,7 +256,7 @@ try {
     <?php else: ?>
         <div class="tournament-grid">
             <?php foreach ($featuredTournaments as $t): ?>
-                <div class="tournament-card">
+                <div class="tournament-card" data-tid="<?= (int)$t['id'] ?>">
                     <div class="tournament-card-header">
                         <span class="tournament-card-name"><?= e($t['name']) ?></span>
                         <span class="tournament-badge badge-<?= $t['status'] ?>"><?= e($t['status']) ?></span>
@@ -264,10 +268,13 @@ try {
                         <?php if ($t['venue']): ?>
                             <span><i data-lucide="map-pin"></i> <?= e($t['venue']) ?></span>
                         <?php endif; ?>
+                        <?php if (!empty($t['description'])): ?>
+                            <span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:220px;" title="<?= e($t['description']) ?>"><?= e($t['description']) ?></span>
+                        <?php endif; ?>
                     </div>
                     <div class="tournament-card-footer">
                         <span class="spots"><strong><?= (int)$t['registered_count'] ?></strong> / <?= (int)$t['max_players'] ?> players</span>
-                        <span class="register-btn">View &rarr;</span>
+                        <button type="button" class="register-btn js-view-bracket-btn" data-tid="<?= (int)$t['id'] ?>" data-tname="<?= e($t['name']) ?>" style="background:none;border:none;cursor:pointer;font-family:inherit;">View &rarr;</button>
                     </div>
                 </div>
             <?php endforeach; ?>
@@ -279,7 +286,98 @@ try {
     TournamentHQ
 </footer>
 
+<!-- Bracket View Modal -->
+<div id="bracketModal" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.6);backdrop-filter:blur(4px);overflow-y:auto;padding:20px;">
+    <div style="max-width:960px;margin:40px auto;background:var(--bg-800);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;">
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:20px 24px;border-bottom:1px solid var(--border);">
+            <h3 id="bracketModalTitle" style="margin:0;font-family:'Outfit',sans-serif;font-size:18px;font-weight:700;color:var(--text-100);">Tournament Bracket</h3>
+            <button type="button" id="bracketModalClose" style="background:none;border:none;color:var(--text-400);font-size:24px;cursor:pointer;padding:0 4px;line-height:1;" title="Close">&times;</button>
+        </div>
+        <div id="bracketModalBody" style="padding:24px;min-height:200px;overflow-x:auto;">
+            <div style="text-align:center;padding:40px;color:var(--text-400);">Loading bracket...</div>
+        </div>
+    </div>
+</div>
+
+<script>
+(function() {
+    var modal = document.getElementById('bracketModal');
+    var modalBody = document.getElementById('bracketModalBody');
+    var modalTitle = document.getElementById('bracketModalTitle');
+    var closeBtn = document.getElementById('bracketModalClose');
+
+    function closeModal() {
+        modal.style.display = 'none';
+        document.body.style.overflow = '';
+        modalBody.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text-400);">Loading bracket...</div>';
+    }
+
+    closeBtn.addEventListener('click', closeModal);
+    modal.addEventListener('click', function(e) {
+        if (e.target === modal) closeModal();
+    });
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape' && modal.style.display !== 'none') closeModal();
+    });
+
+    document.querySelectorAll('.js-view-bracket-btn').forEach(function(btn) {
+        btn.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            var tid = btn.getAttribute('data-tid');
+            var tname = btn.getAttribute('data-tname');
+            modalTitle.textContent = tname + ' — Bracket';
+            modal.style.display = 'block';
+            document.body.style.overflow = 'hidden';
+            modalBody.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text-400);">Loading bracket...</div>';
+
+            fetch('<?= url('/includes/bracket_view_public.php') ?>?tournament_id=' + encodeURIComponent(tid))
+                .then(function(r) { return r.text(); })
+                .then(function(html) {
+                    if (html.indexOf('No bracket yet') !== -1 || html.trim() === '') {
+                        modalBody.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text-400);"><p style="font-size:15px;font-weight:600;margin-bottom:8px;">No bracket available yet</p><p style="font-size:13px;">The bracket for this tournament has not been generated. Check back once registration is closed and the tournament starts!</p></div>';
+                    } else {
+                        modalBody.innerHTML = html;
+                        // Re-initialize Lucide icons inside the modal if available
+                        if (window.lucide) {
+                            try { lucide.createIcons(); } catch(_) {}
+                        }
+                        // Execute scripts embedded in the bracket HTML (drawBracketLines, etc.)
+                        // innerHTML doesn't run <script> tags, so we extract and re-execute them
+                        var scripts = modalBody.querySelectorAll('script');
+                        scripts.forEach(function(old) {
+                            var s = document.createElement('script');
+                            s.textContent = old.textContent;
+                            document.body.appendChild(s);
+                            old.remove();
+                        });
+                        // Draw bracket lines after scripts have run and DOM is settled
+                        setTimeout(function() {
+                            if (typeof window.drawBracketLines === 'function') {
+                                window.drawBracketLines();
+                            }
+                        }, 300);
+                    }
+                })
+                .catch(function() {
+                    modalBody.innerHTML = '<div style="text-align:center;padding:40px;color:var(--danger);">Failed to load bracket. Please try again.</div>';
+                });
+        });
+    });
+
+    // Also make the entire tournament card clickable to open bracket
+    document.querySelectorAll('.tournament-card').forEach(function(card) {
+        card.addEventListener('click', function(e) {
+            // Don't double-fire if the View button was clicked
+            if (e.target.closest('.js-view-bracket-btn')) return;
+            var btn = card.querySelector('.js-view-bracket-btn');
+            if (btn) btn.click();
+        });
+    });
+})();
+</script>
+
 <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
-<script src="/TournamentHQ/assets/js/public.js"></script>
+<script src="<?= url('/assets/js/public.js') ?>"></script>
 </body>
 </html>

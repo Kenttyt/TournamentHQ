@@ -14,6 +14,20 @@ $userId = (int)$_SESSION['user_id'];
 $player = getPlayerByUserId($userId);
 $errors = [];
 
+// Load display name from user_profiles
+$dnStmt = db()->prepare("SELECT display_name FROM user_profiles WHERE user_id = ?");
+$dnStmt->execute([$userId]);
+$dnRow = $dnStmt->fetch();
+$displayName = ($dnRow['display_name'] ?? false) ?: ($_SESSION['username'] ?? '');
+
+/** Auto-sync display_name from first+last name */
+function syncDisplayName(PDO $db, int $userId, string $first, string $last): void {
+    $full = trim($first . ' ' . $last);
+    if ($full === '') return;
+    $db->prepare("INSERT INTO user_profiles (user_id, display_name) VALUES (?, ?) ON DUPLICATE KEY UPDATE display_name = VALUES(display_name)")->execute([$userId, $full]);
+    $_SESSION['display_name'] = $full;
+}
+
 // Get user's auth method
 $stmt = db()->prepare("SELECT auth_method FROM users WHERE id = ?");
 $stmt->execute([$userId]);
@@ -28,35 +42,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = $_POST['action'] ?? '';
 
     if ($action === 'profile') {
-        if (!$player) {
-            $firstName = trim($_POST['first_name'] ?? '');
-            if ($firstName === '') {
-                $errors[] = 'First name is required.';
-            } else {
+        $data = normalizePlayerProfileData($_POST);
+        if ($data['first_name'] === '') {
+            $errors[] = 'First name is required.';
+        } else {
+            if (!$player) {
                 $playerId = createPlayer(array_merge(
-                    ['user_id' => $userId],
-                    normalizePlayerProfileData($_POST)
+                    ['user_id' => $userId], $data
                 ));
                 $player = getPlayerById($playerId);
-                setFlash('success', 'Profile created successfully.');
-                header('Location: profile.php');
-                exit;
-            }
-        } else {
-            $data = normalizePlayerProfileData($_POST);
-            if ($data['first_name'] === '') {
-                $errors[] = 'First name is required.';
             } else {
                 $playerId = (int) ($player['id'] ?? 0);
                 if ($playerId <= 0) {
                     $errors[] = 'Player profile is invalid. Please contact an admin.';
                 } elseif (!updatePlayer($playerId, $data)) {
                     $errors[] = 'Profile could not be saved. Please try again or contact an admin.';
-                } else {
-                    setFlash('success', 'Profile updated successfully.');
-                    header('Location: profile.php');
-                    exit;
                 }
+            }
+            if (empty($errors)) {
+                syncDisplayName(db(), $userId, $data['first_name'], $data['last_name']);
+                $displayName = trim($data['first_name'] . ' ' . $data['last_name']);
+                setFlash('success', 'Profile updated successfully.');
+                header('Location: profile.php');
+                exit;
             }
         }
     }
@@ -111,7 +119,10 @@ require_once __DIR__ . '/../includes/header.php';
                 <?= strtoupper(substr($player['first_name'] ?? $_SESSION['username'],0,1)) ?>
             </div>
             <div style="font-family:'Outfit',sans-serif;font-size:20px;font-weight:700;color:var(--text-100)">
-                <?= e(($player['first_name']??'').' '.($player['last_name']??'')) ?: e($_SESSION['username']) ?>
+                <?= e($displayName) ?>
+            </div>
+            <div style="font-size:12px;color:var(--text-300);margin-top:2px">
+                <?= e(($player['first_name']??'').' '.($player['last_name']??'')) ?>
             </div>
             <div style="font-size:13px;color:var(--text-400);margin-top:4px">
                 <?php
@@ -224,6 +235,11 @@ require_once __DIR__ . '/../includes/header.php';
                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12.01" y2="16"/><line x1="12" y1="8" x2="12" y2="12"/></svg>
                     Your player profile is not set up yet. Fill in the form below and save to create it.
                 </div>
+                <div class="form-group">
+                    <label class="form-label">Display Name</label>
+                    <input type="text" id="displayNamePreview" class="form-control" value="<?= e($displayName) ?>" disabled style="opacity:.5">
+                    <span class="form-hint">Auto-synced from your first and last name.</span>
+                </div>
                 <div class="form-row">
                     <div class="form-group">
                         <label class="form-label">First Name *</label>
@@ -260,6 +276,11 @@ require_once __DIR__ . '/../includes/header.php';
                 </div>
                 <button type="submit" class="btn btn-primary w-full" style="justify-content:center;margin-top:8px">Create Profile</button>
                 <?php else: ?>
+                <div class="form-group">
+                    <label class="form-label">Display Name</label>
+                    <input type="text" id="displayNamePreview" class="form-control" value="<?= e($displayName) ?>" disabled style="opacity:.5">
+                    <span class="form-hint">Auto-synced from your first and last name.</span>
+                </div>
                 <div class="form-group">
                     <label class="form-label">Username</label>
                     <input type="text" class="form-control" value="<?= e($player['username'] ?? $_SESSION['username'] ?? '') ?>" disabled style="opacity:.5">
@@ -366,6 +387,21 @@ require_once __DIR__ . '/../includes/header.php';
             }
         });
     });
+
+    // Auto-preview display name from first + last name
+    (function() {
+        var firstInput = document.querySelector('[name="first_name"]');
+        var lastInput = document.querySelector('[name="last_name"]');
+        var displayInput = document.getElementById('displayNamePreview');
+        if (!firstInput || !displayInput) return;
+        function updateDisplayName() {
+            var val = (firstInput.value || '') + (lastInput && lastInput.value ? ' ' + lastInput.value : '');
+            displayInput.value = val.trim() || displayInput.getAttribute('data-original') || '';
+        }
+        displayInput.setAttribute('data-original', displayInput.value);
+        firstInput.addEventListener('input', updateDisplayName);
+        if (lastInput) lastInput.addEventListener('input', updateDisplayName);
+    })();
 </script>
 
 <?php require_once __DIR__ . '/../includes/footer.php'; ?>

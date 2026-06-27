@@ -198,6 +198,24 @@ class Database {
                 $pdo->exec("ALTER TABLE users ADD CONSTRAINT fk_users_tournament FOREIGN KEY (tournament_id) REFERENCES tournaments(id) ON DELETE CASCADE");
             } catch (PDOException $ex) {}
         }
+
+        // user_profiles table (display_name storage)
+        try {
+            $pdo->query("SELECT user_id FROM user_profiles LIMIT 1");
+        } catch (PDOException $e) {
+            try {
+                $pdo->exec("CREATE TABLE IF NOT EXISTS user_profiles (
+                    user_id INT PRIMARY KEY,
+                    display_name VARCHAR(100) NOT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+                ) ENGINE=InnoDB");
+                $pdo->exec("INSERT IGNORE INTO user_profiles (user_id, display_name) SELECT id, username FROM users");
+            } catch (PDOException $ex) {
+                error_log("user_profiles migration failed: " . $ex->getMessage());
+            }
+        }
     }
 
     /** Default login: username admin, password admin */

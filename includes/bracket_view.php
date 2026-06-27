@@ -1017,7 +1017,7 @@ if (empty($bracketGroups)): ?>
             var body = getBracketBody();
             if (!body) return;
             var xhr = new XMLHttpRequest();
-            xhr.open('GET', '/TournamentHQ/includes/bracket_view_ajax.php?tournament_id=' + TOURNAMENT_ID + '&_=' + Date.now(), true);
+            xhr.open('GET', '<?= url('/includes/bracket_view_ajax.php') ?>?tournament_id=' + TOURNAMENT_ID + '&_=' + Date.now(), true);
             xhr.onload = function() {
                 if (xhr.status === 200 && xhr.responseText.trim()) {
                     var temp = document.createElement('div');
@@ -1035,7 +1035,7 @@ if (empty($bracketGroups)): ?>
 
         function poll() {
             var xhr = new XMLHttpRequest();
-            xhr.open('GET', '/TournamentHQ/includes/match_timestamp.php?tournament_id=' + TOURNAMENT_ID + '&_=' + Date.now(), true);
+            xhr.open('GET', '<?= url('/includes/match_timestamp.php') ?>?tournament_id=' + TOURNAMENT_ID + '&_=' + Date.now(), true);
             xhr.onload = function() {
                 if (xhr.status === 200) {
                     try {

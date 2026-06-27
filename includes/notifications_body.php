@@ -35,7 +35,7 @@ $emptyHint = $role === 'organizer'
             <span class="text-muted"><?= e($emptyHint) ?></span>
         </div>
         <?php else: ?>
-        <div class="notifications-page-list">
+        <div class="notifications-page-list" data-csrf="<?= csrfToken() ?>">
             <?php foreach ($notifications as $n):
                 $icon = notificationIcon($n['type']);
                 $isUnread = empty($n['is_read']);

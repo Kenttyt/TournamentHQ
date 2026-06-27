@@ -32,7 +32,7 @@ function load_n8n_config(): ?array {
  */
 function send_verification_email(string $email, string $username, int $userId, string $token): array {
     $scheme    = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on') ? 'https' : 'http';
-    $verifyUrl = $scheme . '://' . $_SERVER['HTTP_HOST'] . '/TournamentHQ/verify.php?uid=' . $userId . '&token=' . $token;
+    $verifyUrl = $scheme . '://' . $_SERVER['HTTP_HOST'] . url('/verify.php') . '?uid=' . $userId . '&token=' . $token;
 
     $n8n = load_n8n_config();
     if (!$n8n) {

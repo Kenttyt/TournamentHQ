@@ -5,6 +5,7 @@
  */
 
 require_once __DIR__ . '/../config/database.php';
+require_once __DIR__ . '/helpers.php';
 
 if (session_status() === PHP_SESSION_NONE) {
     // Use a unique session name on localhost to avoid cookie conflicts with production
@@ -33,19 +34,20 @@ function isLoggedIn(): bool {
 function getCurrentUser(): ?array {
     if (!isLoggedIn()) return null;
     return [
-        'id'       => $_SESSION['user_id'],
-        'username' => $_SESSION['username'],
-        'role'     => $_SESSION['role'],
-        'email'    => $_SESSION['email'],
+        'id'           => $_SESSION['user_id'],
+        'username'     => $_SESSION['username'],
+        'display_name' => $_SESSION['display_name'] ?? $_SESSION['username'],
+        'role'         => $_SESSION['role'],
+        'email'        => $_SESSION['email'],
     ];
 }
 
 /**
  * Require user to be logged in; redirect to login if not
  */
-function requireLogin(string $redirectTo = '/TournamentHQ/index.php'): void {
+function requireLogin(string $redirectTo = '/index.php'): void {
     if (!isLoggedIn()) {
-        header("Location: $redirectTo");
+        header('Location: ' . url($redirectTo));
         exit;
     }
 }
@@ -90,8 +92,8 @@ function requireEmailVerified(): void {
             }
             session_destroy();
             session_start();
-            setFlash('warning', 'Your email is not verified. Please verify your email before accessing the site. Check your inbox or <a href="/TournamentHQ/resend-verification.php">resend verification email</a>.');
-            header('Location: /TournamentHQ/login.php');
+            setFlash('warning', 'Your email is not verified. Please verify your email before accessing the site. Check your inbox or <a href="' . url('/resend-verification.php') . '">resend verification email</a>.');
+            header('Location: ' . url('/login.php'));
             exit;
         }
     } catch (PDOException $e) {
@@ -105,15 +107,15 @@ function requireEmailVerified(): void {
 function getDashboardUrl($role) {
     switch ($role) {
         case 'admin':
-            return '/TournamentHQ/admin/index.php';
+            return url('/admin/index.php');
         case 'organizer':
-            return '/TournamentHQ/organizer/index.php';
+            return url('/organizer/index.php');
         case 'player':
-            return '/TournamentHQ/player/index.php';
+            return url('/player/index.php');
         case 'umpire':
-            return '/TournamentHQ/umpire/dashboard';
+            return url('/umpire/dashboard');
         default:
-            return '/TournamentHQ/index.php';
+            return url('/index.php');
     }
 }
 
@@ -138,8 +140,14 @@ function loginUser(string $username, string $password): array {
                 ];
             }
 
+            // Load display_name from user_profiles
+            $dnStmt = db()->prepare("SELECT display_name FROM user_profiles WHERE user_id = ?");
+            $dnStmt->execute([$user['id']]);
+            $dnRow = $dnStmt->fetch();
+
             $_SESSION['user_id']  = $user['id'];
             $_SESSION['username'] = $user['username'];
+            $_SESSION['display_name'] = ($dnRow['display_name'] ?? false) ?: $user['username'];
             $_SESSION['role']     = $user['role'];
             $_SESSION['email']    = $user['email'];
             session_regenerate_id(true);
@@ -164,7 +172,7 @@ function logoutUser(): void {
         );
     }
     session_destroy();
-    header('Location: /TournamentHQ/index.php');
+    header('Location: ' . url('/index.php'));
     exit;
 }
 

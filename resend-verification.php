@@ -75,8 +75,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@400;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://unpkg.com/lucide-static@latest/font/lucide.css">
-    <link rel="stylesheet" href="/TournamentHQ/assets/css/style.css">
-    <link rel="stylesheet" href="/TournamentHQ/assets/css/public.css">
+    <link rel="stylesheet" href="<?= url('/assets/css/style.css') ?>">
+    <link rel="stylesheet" href="<?= url('/assets/css/public.css') ?>">
     <style>
         .page-wrapper {
             min-height: 100vh;
@@ -276,13 +276,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             <div class="rv-divider">OR</div>
 
-            <button onclick="location.href='/TournamentHQ/index.php'" class="rv-btn rv-btn-secondary">
+            <button onclick="location.href='<?= url('/index.php') ?>'" class="rv-btn rv-btn-secondary">
                 Back to Sign In
             </button>
 
             <div class="rv-links">
                 <p style="margin: 20px 0 10px 0; color: var(--text-300);">
-                    Don't have an account? <a href="/TournamentHQ/register.php">Sign up</a>
+                    Don't have an account? <a href="<?= url('/register.php') ?>">Sign up</a>
                 </p>
             </div>
         </div>

@@ -202,17 +202,27 @@ function initNotificationPage() {
     const list = document.querySelector('.notifications-page-list');
     if (!list) return;
 
-    const actionUrl = '/TournamentHQ/includes/notification_action.php';
+    const actionUrl = BASE_URL + '/includes/notification_action.php';
+    const csrfToken = list.getAttribute('data-csrf') || '';
 
-    // ---- Mark-read on link click (existing behaviour) ----
+    // ---- Mark-read on link click ----
     list.querySelectorAll('.notification-card-link[data-notification-id]').forEach((item) => {
-        item.addEventListener('click', () => {
-            const id = item.getAttribute('data-notification-id');
+        item.addEventListener('click', function () {
+            const id = this.getAttribute('data-notification-id');
             if (!id) return;
+            const card = this.closest('.notification-card');
             const body = new URLSearchParams();
             body.set('action', 'mark_read');
             body.set('notification_id', id);
-            fetch(actionUrl, { method: 'POST', body, credentials: 'same-origin' }).catch(() => {});
+            body.set('csrf_token', csrfToken);
+            fetch(actionUrl, { method: 'POST', body, credentials: 'same-origin' })
+                .then(function(r) { return r.json(); })
+                .then(function(data) {
+                    if (data.ok && card) {
+                        card.classList.remove('is-unread');
+                    }
+                })
+                .catch(function() {});
         });
     });
 
@@ -250,6 +260,8 @@ function initNotificationPage() {
             const body = new URLSearchParams();
             body.set('notification_id', notifId);
 
+            body.set('csrf_token', csrfToken);
+
             if (action === 'mark_read') {
                 body.set('action', 'mark_read');
                 fetch(actionUrl, { method: 'POST', body, credentials: 'same-origin' })
@@ -257,7 +269,6 @@ function initNotificationPage() {
                     .then(data => {
                         if (data.ok && card) {
                             card.classList.remove('is-unread');
-                            // Remove the "Mark as Read" button from the menu
                             actionBtn.remove();
                         }
                     })
@@ -273,7 +284,6 @@ function initNotificationPage() {
                             card.style.transform = 'translateX(20px)';
                             setTimeout(() => {
                                 card.remove();
-                                // If no notifications remain, show the empty state
                                 if (!list.querySelector('.notification-card')) {
                                     const emptyDiv = document.createElement('div');
                                     emptyDiv.className = 'notification-empty';
