@@ -67,11 +67,11 @@ try {
 
         // If the user came from the SIGNUP page, don't auto-login — they already have an account
         if ($oauthMode === 'register') {
-            $loginUrl = '/TournamentHQ/login.php' . ($oauthRole === 'organizer' ? '?role=organizer' : '');
+            $loginUrl = url('/login.php') . ($oauthRole === 'organizer' ? '?role=organizer' : '');
             clearGoogleOAuthSession();
             // Special case: player Google account used on the organizer sign-up
             if ($oauthRole === 'organizer' && $user['role'] === 'player') {
-                setFlash('warning', '⚠️ This Google account is already linked to a <strong>Player account</strong>. You cannot register it as an Organizer. Please use a different Google account, or <a href="/TournamentHQ/login.php">log in as a player</a> instead.');
+                setFlash('warning', '⚠️ This Google account is already linked to a <strong>Player account</strong>. You cannot register it as an Organizer. Please use a different Google account, or <a href="' . url('/login.php') . '">log in as a player</a> instead.');
             } else {
                 setFlash('error', 'An account with this Google email already exists. Please log in instead.');
             }
@@ -83,20 +83,25 @@ try {
         if ($oauthRole === 'organizer' && $user['role'] === 'player') {
             clearGoogleOAuthSession();
             setFlash('danger', 'This Google account is linked to a <strong>Player account</strong>. Please use the Player sign-in instead.');
-            header('Location: /TournamentHQ/login.php?role=organizer');
+            header('Location: ' . url('/login.php?role=organizer'));
             exit;
         }
         if ($oauthRole === '' && $user['role'] === 'organizer') {
             clearGoogleOAuthSession();
             setFlash('danger', 'This Google account is linked to an <strong>Organizer account</strong>. Please use the Organizer sign-in instead.');
-            header('Location: /TournamentHQ/login.php');
+            header('Location: ' . url('/login.php'));
             exit;
         }
 
         // Auto-login the user with Google OAuth
         clearGoogleOAuthSession();
+        // Load display_name from user_profiles
+        $dnStmt = $pdo->prepare("SELECT display_name FROM user_profiles WHERE user_id = ?");
+        $dnStmt->execute([$user['id']]);
+        $dnRow = $dnStmt->fetch();
         $_SESSION['user_id'] = $user['id'];
         $_SESSION['username'] = $user['username'];
+        $_SESSION['display_name'] = ($dnRow['display_name'] ?? false) ?: $user['username'];
         $_SESSION['role'] = $user['role'];
         $_SESSION['email'] = $user['email'];
         session_regenerate_id(true);
@@ -111,14 +116,14 @@ try {
             'No account found for this Google email. Please create an account first using Sign up with Google.'
         );
         clearGoogleOAuthSession();
-        header('Location: /TournamentHQ/login.php');
+        header('Location: ' . url('/login.php'));
         exit;
     }
 
     // Register mode — redirect to signup form with email pre-filled and read-only
     $roleQuery = $oauthRole === 'organizer' ? '&role=organizer' : '';
     clearGoogleOAuthSession();
-    header('Location: /TournamentHQ/login.php?google_email=' . urlencode($email) . $roleQuery);
+    header('Location: ' . url('/login.php') . '?google_email=' . urlencode($email) . $roleQuery);
     exit;
 } catch (Throwable $e) {
     if (isset($pdo) && $pdo->inTransaction()) {

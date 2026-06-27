@@ -26,6 +26,17 @@ CREATE TABLE IF NOT EXISTS users (
 ) ENGINE=InnoDB;
 
 -- ============================================================
+-- USER PROFILES TABLE (display_name etc.)
+-- ============================================================
+CREATE TABLE IF NOT EXISTS user_profiles (
+    user_id INT PRIMARY KEY,
+    display_name VARCHAR(100) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+-- ============================================================
 -- PLAYERS TABLE
 -- ============================================================
 CREATE TABLE IF NOT EXISTS players (

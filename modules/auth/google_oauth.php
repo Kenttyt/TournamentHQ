@@ -35,7 +35,7 @@ function googleOAuthRedirectUri(): string {
 function startGoogleOAuth(string $mode = 'login', string $role = ''): void {
     if (!isGoogleOAuthConfigured()) {
         setFlash('danger', 'Google sign-in is not configured. Add your Client ID and Secret in config/google.local.php (see config/google.local.php.example).');
-        header('Location: ' . ($mode === 'register' ? '/TournamentHQ/register.php' : '/TournamentHQ/index.php'));
+        header('Location: ' . ($mode === 'register' ? url('/register.php') : url('/index.php')));
         exit;
     }
 
@@ -150,7 +150,7 @@ function getGoogleOAuthRole(): string {
 
 function googleOAuthReturnUrl(?string $mode = null): string {
     $mode = $mode ?? getGoogleOAuthMode();
-    return $mode === 'register' ? '/TournamentHQ/register.php' : '/TournamentHQ/index.php';
+    return $mode === 'register' ? url('/register.php') : url('/index.php');
 }
 
 function clearGoogleOAuthSession(): void {

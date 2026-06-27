@@ -135,7 +135,7 @@ require_once __DIR__ . '/../includes/header.php';
         </div>
     </div>
     <?php
-    $baseUrl = '/TournamentHQ/organizer/players.php' . ($tidFilter ? '?tournament_id=' . $tidFilter : '');
+    $baseUrl = url('/organizer/players.php') . ($tidFilter ? '?tournament_id=' . $tidFilter : '');
     require_once __DIR__ . '/../includes/pagination.php';
     ?>
 </div>

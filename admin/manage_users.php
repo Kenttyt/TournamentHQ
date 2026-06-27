@@ -183,7 +183,7 @@ require_once __DIR__ . '/../includes/header.php';
         </div>
     </div>
     <?php
-    $baseUrl = '/TournamentHQ/admin/manage_users.php' . ($search ? '?search=' . urlencode($search) : '');
+    $baseUrl = url('/admin/manage_users.php') . ($search ? '?search=' . urlencode($search) : '');
     require_once __DIR__ . '/../includes/pagination.php';
     ?>
 </div>

@@ -23,10 +23,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $password   = $_POST['password'] ?? '';
     $username   = trim($_POST['username'] ?? '');
     $email      = trim($_POST['email'] ?? '');
-    $gender     = $_POST['gender'] ?? 'male';
-    $club       = trim($_POST['club'] ?? '');
-    $nationality= trim($_POST['nationality'] ?? '');
-
     if (!$password || !$username || !$email) {
         $error = 'Please fill in all required fields.';
     } elseif (!preg_match('/^[A-Za-z]{3,30}$/', $username)) {
@@ -57,9 +53,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $userId = $pdo->lastInsertId();
 
                 // Insert player profile: store username as first_name and leave last_name empty
-                $stmt = $pdo->prepare("INSERT INTO players (user_id, first_name, last_name, gender, club, nationality, points, wins, losses) VALUES (?, ?, ?, ?, ?, ?, 0, 0, 0)");
-                $stmt->execute([$userId, $username, '', $gender, $club ?: null, $nationality ?: null]);
-                $playerId = $pdo->lastInsertId();
+                $stmt = $pdo->prepare("INSERT INTO players (user_id, first_name, last_name, points, wins, losses) VALUES (?, ?, '', 0, 0, 0)");
+                $stmt->execute([$userId, $username]);
 
                 $pdo->commit();
 
@@ -80,7 +75,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 } else {
                     setFlash('warning', 'Account created! However, we could not send the verification email to ' . e($email) . ' automatically. Please try to log in to resend the verification email, or contact support.');
                 }
-                header('Location: /TournamentHQ/index.php');
+                header('Location: ' . url('/index.php'));
                 exit;
             }
         } catch (PDOException $e) {
@@ -105,8 +100,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@400;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://unpkg.com/lucide-static@latest/font/lucide.css">
-    <link rel="stylesheet" href="/TournamentHQ/assets/css/style.css">
-    <link rel="stylesheet" href="/TournamentHQ/assets/css/public.css">
+    <link rel="stylesheet" href="<?= url('/assets/css/style.css') ?>">
+    <link rel="stylesheet" href="<?= url('/assets/css/public.css') ?>">
     <style>
         .login-page {
             min-height: 100vh;
@@ -331,36 +326,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         </div>
                     </div>
 
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label class="form-label" for="gender">Gender</label>
-                            <select id="gender" name="gender" class="form-select" style="background:var(--bg-700); border-color:rgba(255,255,255,0.05); height:44px; color:var(--text-100); font-size: 13px;">
-                                <option value="male">Male</option>
-                                <option value="female">Female</option>
-                                <option value="other">Other</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label class="form-label" for="nationality">Place</label>
-                            <div class="input-wrap">
-                                <svg data-lucide="map-pin" class="input-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                    <path d="M21 10c0 6-9 13-9 13S3 16 3 10A9 9 0 0 1 21 10z"></path>
-                                    <circle cx="12" cy="10" r="3"></circle>
-                                </svg>
-                                <input type="text" id="nationality" name="nationality" class="form-control" placeholder="e.g. Manila, Philippines">
-                            </div>
-                        </div>
-                    </div>
 
-                    <div class="form-group">
-                        <label class="form-label" for="club">Club (Optional)</label>
-                        <div class="input-wrap">
-                            <svg data-lucide="shield" class="input-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
-                            </svg>
-                            <input type="text" id="club" name="club" class="form-control" placeholder="e.g. Smashers Club">
-                        </div>
-                    </div>
 
                     <button type="submit" class="btn btn-primary btn-login" id="registerBtn">
                         <i data-lucide="user-plus" style="margin-right: 6px;"></i>
@@ -369,7 +335,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 </form>
 
                 <?php if ($googleEnabled): ?>
-                <a href="/TournamentHQ/google-login.php?mode=register" class="btn" style="width: 100%; justify-content: center; height: 44px; font-size: 14px; background: #ffffff; color: #1f1f1f; margin-top: 12px; border: 1px solid #dadce0; font-family: 'Roboto', sans-serif; font-weight: 500;">
+                <a href="<?= url('/google-login.php?mode=register') ?>" class="btn" style="width: 100%; justify-content: center; height: 44px; font-size: 14px; background: #ffffff; color: #1f1f1f; margin-top: 12px; border: 1px solid #dadce0; font-family: 'Roboto', sans-serif; font-weight: 500;">
                     <svg viewBox="0 0 24 24" width="18" height="18" style="margin-right: 8px; vertical-align: middle;">
                         <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
                         <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
@@ -386,7 +352,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                 <div class="login-sep">Already have an account?</div>
 
-                <a href="/TournamentHQ/index.php" class="btn btn-outline" style="width: 100%; justify-content: center; height: 44px; font-size: 14px;">
+                <a href="<?= url('/index.php') ?>" class="btn btn-outline" style="width: 100%; justify-content: center; height: 44px; font-size: 14px;">
                     <i data-lucide="log-in" style="margin-right: 6px;"></i>
                     Sign In
                 </a>
@@ -397,7 +363,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 </div>
 
 <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
-<script src="/TournamentHQ/assets/js/public.js"></script>
+<script src="<?= url('/assets/js/public.js') ?>"></script>
 <script>
 const registerForm = document.getElementById('registerForm');
 const usernameInput = document.getElementById('username');

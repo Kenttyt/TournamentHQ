@@ -6,7 +6,7 @@ $token = $_GET['token'] ?? '';
 
 if (!$uid || !$token) {
     setFlash('error', 'Invalid verification link.');
-    header('Location: /TournamentHQ/login.php');
+    header('Location: ' . url('/login.php'));
     exit;
 }
 
@@ -16,37 +16,37 @@ try {
     $user = $stmt->fetch();
     if (!$user) {
         setFlash('error', 'User not found.');
-        header('Location: /TournamentHQ/login.php');
+        header('Location: ' . url('/login.php'));
         exit;
     }
 
     if ($user['is_verified']) {
         setFlash('success', 'Email already verified. You can log in.');
-        header('Location: /TournamentHQ/login.php');
+        header('Location: ' . url('/login.php'));
         exit;
     }
 
     if (empty($user['verification_token']) || !hash_equals($user['verification_token'], $token)) {
         setFlash('error', 'Invalid or expired verification token.');
-        header('Location: /TournamentHQ/login.php');
+        header('Location: ' . url('/login.php'));
         exit;
     }
 
     $now = new DateTime();
     if (!empty($user['token_expires']) && $now > new DateTime($user['token_expires'])) {
         setFlash('error', 'Verification link has expired.');
-        header('Location: /TournamentHQ/login.php');
+        header('Location: ' . url('/login.php'));
         exit;
     }
 
     // Mark verified
     db()->prepare('UPDATE users SET is_verified = 1, verification_token = NULL, token_expires = NULL WHERE id = ?')->execute([$uid]);
     setFlash('success', 'Email successfully verified. You can now log in.');
-    header('Location: /TournamentHQ/login.php');
+    header('Location: ' . url('/login.php'));
     exit;
 } catch (Exception $e) {
     error_log('TournamentHQ Verification Error: ' . $e->getMessage());
     setFlash('error', 'Verification failed. Please try again.');
-    header('Location: /TournamentHQ/login.php');
+    header('Location: ' . url('/login.php'));
     exit;
 }

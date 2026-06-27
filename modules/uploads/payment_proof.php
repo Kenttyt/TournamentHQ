@@ -83,7 +83,7 @@ function paymentProofPublicUrl(?string $relativePath): ?string {
     if ($relativePath === null || $relativePath === '') {
         return null;
     }
-    return '/TournamentHQ/payment-proof.php?f=' . rawurlencode($relativePath);
+    return url('/payment-proof.php?f=' . rawurlencode($relativePath));
 }
 
 function userCanViewPaymentProof(int $userId, string $role, string $relativePath): bool {

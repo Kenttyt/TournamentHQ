@@ -16,8 +16,8 @@ if (isLoggedIn()) {
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@400;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://unpkg.com/lucide-static@latest/font/lucide.css">
-    <link rel="stylesheet" href="/TournamentHQ/assets/css/style.css">
-    <link rel="stylesheet" href="/TournamentHQ/assets/css/public.css">
+    <link rel="stylesheet" href="<?= url('/assets/css/style.css') ?>">
+    <link rel="stylesheet" href="<?= url('/assets/css/public.css') ?>">
     <style>
         .landing-panel {
             max-width: 700px;
@@ -54,15 +54,15 @@ if (isLoggedIn()) {
 
 <header class="site-header">
     <div class="nav-container">
-        <a href="/TournamentHQ/index.php" class="brand-logo">
+        <a href="<?= url('/index.php') ?>" class="brand-logo">
             <i data-lucide="trophy"></i>
             <span>TournamentHQ<em>.</em></span>
         </a>
         <nav class="nav-links">
-            <a href="/TournamentHQ/login.php?role=organizer" class="nav-link-item active" style="color:#fff;background:rgba(0,212,170,0.15);border-color:rgba(0,212,170,0.5);">
+            <a href="<?= url('/login.php?role=organizer') ?>" class="nav-link-item active" style="color:#fff;background:rgba(0,212,170,0.15);border-color:rgba(0,212,170,0.5);">
                 <i data-lucide="layout-grid" style="width:16px;height:16px;"></i> Organize
             </a>
-            <a href="/TournamentHQ/login.php?role=organizer" class="nav-login">
+            <a href="<?= url('/login.php?role=organizer') ?>" class="nav-login">
                 <i data-lucide="log-in" style="width:16px;height:16px;"></i> Login
             </a>
         </nav>
@@ -116,6 +116,6 @@ if (isLoggedIn()) {
 </div>
 
 <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
-<script src="/TournamentHQ/assets/js/public.js"></script>
+<script src="<?= url('/assets/js/public.js') ?>"></script>
 </body>
 </html>

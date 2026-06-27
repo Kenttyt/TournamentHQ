@@ -64,7 +64,7 @@ $entrantLabelPlural = $isTeamEvent ? 'teams' : 'players';
                     $groupSize = $isAllRR ? $entrantCount : normalizeGroupSize((int) $rawGroupSize);
                     $estimatedGroups = $isAllRR ? 1 : estimateGroupCount($entrantCount, $groupSize);
                 ?>
-                    <form method="POST" action="<?= e($formAction) ?>" id="groupGenForm" onsubmit="return confirm('Generate new group brackets? Existing scheduled matches for this tournament will be replaced.');">
+                    <form method="POST" action="<?= e($formAction) ?>" id="groupGenForm">
                         <input type="hidden" name="action" value="generate">
                         <input type="hidden" name="tournament_id" value="<?= $tid ?>">
                         <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
@@ -503,7 +503,11 @@ if (!empty($bracketGroups)) {
 (function(){
     var form = document.getElementById('groupGenForm');
     if (!form) return;
-    form.addEventListener('submit', function(){
+    form.addEventListener('submit', function(e){
+        if (!confirm('Generate new group brackets? Existing scheduled matches for this tournament will be replaced.')) {
+            e.preventDefault();
+            return;
+        }
         var overlay = document.getElementById('groupLoadingOverlay');
         if (overlay) { overlay.style.display = 'flex'; }
         var btn = document.getElementById('groupGenBtn');
@@ -977,7 +981,7 @@ document.querySelector('#bracketResultModal form')?.addEventListener('submit', f
         isRefreshing = true;
         setStatus('#f0ad4e', 'Updating...');
 
-        var baseUrl = '/TournamentHQ/includes/bracket_view_ajax.php?tournament_id=' + TOURNAMENT_ID + '&record_result_url=' + encodeURIComponent('<?= e($formAction) ?>') + '&_=';
+        var baseUrl = '<?= url('/includes/bracket_view_ajax.php') ?>?tournament_id=' + TOURNAMENT_ID + '&record_result_url=' + encodeURIComponent('<?= e($formAction) ?>') + '&_=';
         var ts = Date.now();
         var pending = 0;
         var updated = false;
@@ -1031,7 +1035,7 @@ document.querySelector('#bracketResultModal form')?.addEventListener('submit', f
 
     function poll() {
         var xhr = new XMLHttpRequest();
-        xhr.open('GET', '/TournamentHQ/includes/match_timestamp.php?tournament_id=' + TOURNAMENT_ID + '&_=' + Date.now(), true);
+        xhr.open('GET', '<?= url('/includes/match_timestamp.php') ?>?tournament_id=' + TOURNAMENT_ID + '&_=' + Date.now(), true);
         xhr.onload = function() {
             if (xhr.status === 200) {
                 try {

@@ -160,7 +160,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 // Move to ongoing status and redirect to bracket generator
                 updateTournament($id, array_merge($t, ['status' => 'ongoing']));
                 setFlash('success', 'Tournament moved to bracketing.');
-                header('Location: /TournamentHQ/organizer/bracket_generator.php?tournament_id=' . $id);
+                header('Location: ' . url('/organizer/bracket_generator.php?tournament_id=' . $id));
                 exit;
             }
         }
@@ -591,7 +591,7 @@ function renderTournamentCard(array $t, int $userId): void {
                         <button type="submit" class="btn btn-primary btn-sm" title="Start bracketing and view bracket">Check Bracket</button>
                     </form>
                 <?php else: ?>
-                    <a href="/TournamentHQ/organizer/bracket_generator.php?tournament_id=<?= (int) $t['id'] ?>" class="btn btn-outline btn-sm" title="View tournament bracket">Check Bracket</a>
+                    <a href="<?= url('/organizer/bracket_generator.php') ?>?tournament_id=<?= (int) $t['id'] ?>" class="btn btn-outline btn-sm" title="View tournament bracket">Check Bracket</a>
                 <?php endif; ?>
                 
                 <?php 
@@ -658,7 +658,7 @@ require_once __DIR__ . '/../includes/header.php';
 </div>
 
 <?php
-$baseUrl = '/TournamentHQ/organizer/tournaments.php' . ($statusFilter ? '?status=' . urlencode($statusFilter) : '');
+$baseUrl = url('/organizer/tournaments.php') . ($statusFilter ? '?status=' . urlencode($statusFilter) : '');
 require_once __DIR__ . '/../includes/pagination.php';
 ?>
 

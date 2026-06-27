@@ -43,6 +43,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     if ($user) {
                         $_SESSION['user_id']  = $user['id'];
                         $_SESSION['username'] = $user['username'];
+                        $_SESSION['display_name'] = $user['username'];
                         $_SESSION['role']     = $user['role'];
                         $_SESSION['email']    = $user['email'];
                         header('Location: ' . getDashboardUrl($user['role']));
@@ -104,7 +105,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             exit;
                         }
                     } elseif ($result['message'] === 'email_not_verified') {
-                        $loginError = 'Your email is not verified. Please check your inbox or <a href="/TournamentHQ/resend-verification.php">resend verification email</a>.';
+                        $loginError = 'Your email is not verified. Please check your inbox or <a href="' . url('/resend-verification.php') . '">resend verification email</a>.';
                         $loginErrorIsHtml = true;
                     } else {
                         $loginError = $result['message'];
@@ -160,7 +161,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $pdo->commit();
 
                         if ($isGoogleSignup) {
-                            $redirectAfterReg = '/TournamentHQ/login.php' . ($roleParam === 'organizer' ? '?role=organizer' : '');
+                            $redirectAfterReg = url('/login.php' . ($roleParam === 'organizer' ? '?role=organizer' : ''));
                             setFlash('success', 'Account created successfully using Google email! You can now log in.');
                             header('Location: ' . $redirectAfterReg);
                             exit;
@@ -173,7 +174,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                             send_verification_email($regEmail, $regUsername, $userId, $token);
                             setFlash('success', 'Account created! A verification email has been sent to ' . e($regEmail) . '. Please verify your email to access your account.');
-                            header('Location: /TournamentHQ/login.php');
+                            header('Location: ' . url('/login.php'));
                             exit;
                         }
                     }
@@ -199,8 +200,8 @@ $googleEnabled = isGoogleOAuthConfigured();
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@400;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://unpkg.com/lucide-static@latest/font/lucide.css">
-    <link rel="stylesheet" href="/TournamentHQ/assets/css/style.css">
-    <link rel="stylesheet" href="/TournamentHQ/assets/css/public.css">
+    <link rel="stylesheet" href="<?= url('/assets/css/style.css') ?>">
+    <link rel="stylesheet" href="<?= url('/assets/css/public.css') ?>">
     <style>
         .login-card {
             padding: 0;
@@ -244,7 +245,7 @@ $googleEnabled = isGoogleOAuthConfigured();
 
 <header class="site-header">
     <div class="nav-container">
-        <a href="/TournamentHQ/index.php" class="brand-logo">
+        <a href="<?= url('/index.php') ?>" class="brand-logo">
             <i data-lucide="trophy"></i>
             <span>TournamentHQ<em>.</em></span>
         </a>
@@ -264,7 +265,7 @@ $googleEnabled = isGoogleOAuthConfigured();
         <div class="auth-form <?= $activeTab !== 'login' ? 'hidden' : '' ?>" id="loginForm">
             <?php if ($roleParam === 'umpire'): ?>
                 <div style="margin-bottom: 16px;">
-                    <a href="/TournamentHQ/login.php?role=organizer" style="color: var(--primary-light); font-size: 13px; display: inline-flex; align-items: center; gap: 4px; font-weight: 500;" class="hover-underline">
+                    <a href="<?= url('/login.php?role=organizer') ?>" style="color: var(--primary-light); font-size: 13px; display: inline-flex; align-items: center; gap: 4px; font-weight: 500;" class="hover-underline">
                         <i data-lucide="arrow-left" style="width: 14px; height: 14px;"></i> Back to Login
                     </a>
                 </div>
@@ -279,7 +280,7 @@ $googleEnabled = isGoogleOAuthConfigured();
                 <div class="form-error"><?= $loginErrorIsHtml ? $loginError : e($loginError) ?></div>
             <?php endif; ?>
 
-            <form method="POST" action="/TournamentHQ/login.php">
+            <form method="POST" action="<?= url('/login.php') ?>">
                 <input type="hidden" name="form_type" value="login">
                 <input type="hidden" name="role_param" value="<?= htmlspecialchars($roleParam) ?>">
                 <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
@@ -314,11 +315,11 @@ $googleEnabled = isGoogleOAuthConfigured();
                     </div>
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 6px;">
                         <?php if ($roleParam === 'organizer'): ?>
-                            <a href="/TournamentHQ/login.php?role=umpire" style="color: var(--primary-light); font-size: 12px; font-weight: 500;" class="hover-underline">Are you an Umpire? Log in here</a>
+                            <a href="<?= url('/login.php?role=umpire') ?>" style="color: var(--primary-light); font-size: 12px; font-weight: 500;" class="hover-underline">Are you an Umpire? Log in here</a>
                         <?php else: ?>
                             <div></div>
                         <?php endif; ?>
-                        <a href="/TournamentHQ/forgot-password.php<?= $roleParam === 'organizer' ? '?role=organizer' : '' ?>" style="color: var(--primary-light); font-size: 12px; font-weight: 500;" class="hover-underline">Forgot password?</a>
+                        <a href="<?= url('/forgot-password.php' . ($roleParam === 'organizer' ? '?role=organizer' : '')) ?>" style="color: var(--primary-light); font-size: 12px; font-weight: 500;" class="hover-underline">Forgot password?</a>
                     </div>
                 </div>
                 <?php endif; ?>
@@ -328,7 +329,7 @@ $googleEnabled = isGoogleOAuthConfigured();
 
             <?php if ($googleEnabled && $roleParam !== 'umpire'): ?>
             <div class="login-sep">or</div>
-            <a href="/TournamentHQ/google-login.php?mode=login<?= $roleParam ? '&role=' . urlencode($roleParam) : '' ?>" class="btn-google">
+            <a href="<?= url('/google-login.php?mode=login' . ($roleParam ? '&role=' . urlencode($roleParam) : '')) ?>" class="btn-google">
                 <svg viewBox="0 0 24 24" width="18" height="18"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
                 Sign in with Google
             </a>
@@ -344,7 +345,7 @@ $googleEnabled = isGoogleOAuthConfigured();
                 <div class="form-error"><?= e($regError) ?></div>
             <?php endif; ?>
 
-            <form method="POST" action="/TournamentHQ/login.php">
+            <form method="POST" action="<?= url('/login.php') ?>">
                 <input type="hidden" name="form_type" value="register">
                 <input type="hidden" name="role_param" value="<?= htmlspecialchars($roleParam) ?>">
                 <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
@@ -384,6 +385,7 @@ $googleEnabled = isGoogleOAuthConfigured();
                         </button>
                     </div>
                 </div>
+                <?php if ($roleParam !== 'organizer'): ?>
                 <div class="form-row">
                     <div class="form-group">
                         <label for="reg-gender">Gender</label>
@@ -410,12 +412,13 @@ $googleEnabled = isGoogleOAuthConfigured();
                         <i data-lucide="shield" class="input-icon"></i>
                     </div>
                 </div>
+                <?php endif; ?>
                 <button type="submit" class="btn-submit">Create Account</button>
             </form>
 
             <?php if ($googleEnabled): ?>
             <div class="login-sep">or</div>
-            <a href="/TournamentHQ/google-login.php?mode=register<?= $roleParam ? '&role=' . urlencode($roleParam) : '' ?>" class="btn-google">
+            <a href="<?= url('/google-login.php?mode=register' . ($roleParam ? '&role=' . urlencode($roleParam) : '')) ?>" class="btn-google">
                 <svg viewBox="0 0 24 24" width="18" height="18"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
                 Sign up with Google
             </a>
@@ -429,7 +432,7 @@ $googleEnabled = isGoogleOAuthConfigured();
 </footer>
 
 <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
-<script src="/TournamentHQ/assets/js/public.js"></script>
+<script src="<?= url('/assets/js/public.js') ?>"></script>
 <script>
 function switchTab(tab) {
     document.querySelectorAll('.auth-tab').forEach(t => t.classList.remove('active'));

@@ -12,9 +12,11 @@ requireRole(['admin','organizer']);
 $userId = (int)$_SESSION['user_id'];
 $errors = [];
 
-$userStmt = db()->prepare("SELECT username, email, role, created_at, auth_method FROM users WHERE id = ?");
+$userStmt = db()->prepare("SELECT u.username, u.email, u.role, u.created_at, u.auth_method, COALESCE(p.display_name, u.username) AS display_name FROM users u LEFT JOIN user_profiles p ON p.user_id = u.id WHERE u.id = ?");
 $userStmt->execute([$userId]);
 $userInfo = $userStmt->fetch();
+
+$displayName = $userInfo['display_name'] ?? $userInfo['username'] ?? '';
 
 $authMethod = $userInfo['auth_method'] ?? 'local';
 
@@ -47,6 +49,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             header('Location: profile.php'); exit;
         }
     }
+
+    if ($action === 'profile') {
+        $submittedName = trim($_POST['display_name'] ?? '');
+        if ($submittedName === '') {
+            $errors[] = 'Display name cannot be empty.';
+        } elseif (mb_strlen($submittedName) > 100) {
+            $errors[] = 'Display name must be 100 characters or fewer.';
+        } else {
+            try {
+                db()->prepare("INSERT INTO user_profiles (user_id, display_name) VALUES (?, ?) ON DUPLICATE KEY UPDATE display_name = VALUES(display_name)")->execute([$userId, $submittedName]);
+                $_SESSION['display_name'] = $submittedName;
+                setFlash('success', 'Profile updated successfully.');
+            } catch (PDOException $ex) {
+                $errors[] = 'Could not update display name (DB: ' . e($ex->getMessage()) . ')';
+                error_log("display_name update failed: " . $ex->getMessage());
+            }
+            if (empty($errors)) {
+                header('Location: profile.php'); exit;
+            }
+        }
+    }
 }
 
 require_once __DIR__ . '/../includes/header.php';
@@ -71,10 +94,10 @@ require_once __DIR__ . '/../includes/header.php';
         <!-- Avatar / Summary -->
         <div class="card mb-24" style="text-align:center;padding:32px">
             <div style="width:80px;height:80px;border-radius:50%;background:linear-gradient(135deg,var(--primary),var(--accent));display:flex;align-items:center;justify-content:center;font-size:32px;font-weight:800;color:#fff;margin:0 auto 16px">
-                <?= strtoupper(substr($userInfo['username'] ?? $_SESSION['username'], 0, 1)) ?>
+                <?= strtoupper(substr($displayName, 0, 1)) ?>
             </div>
             <div style="font-family:'Outfit',sans-serif;font-size:20px;font-weight:700;color:var(--text-100)">
-                <?= e($userInfo['username'] ?? $_SESSION['username']) ?>
+                <?= e($displayName) ?>
             </div>
             <div style="font-size:13px;color:var(--text-400);margin-top:4px">
                 <?= e($userInfo['email'] ?? '') ?> · <?= e(ucfirst($userInfo['role'] ?? '')) ?>
@@ -169,22 +192,32 @@ require_once __DIR__ . '/../includes/header.php';
                 Account Information
             </div>
         </div>
-        <div class="card-body">
-            <div class="form-group">
-                <label class="form-label">Username</label>
-                <input type="text" class="form-control" value="<?= e($userInfo['username'] ?? '') ?>" disabled style="opacity:.5">
-                <span class="form-hint">Username cannot be changed.</span>
+        <form method="POST">
+            <input type="hidden" name="action" value="profile">
+            <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
+            <div class="card-body">
+                <div class="form-group">
+                    <label class="form-label">Display Name</label>
+                    <input type="text" name="display_name" class="form-control" value="<?= e($displayName) ?>" required maxlength="100">
+                    <span class="form-hint">This name will be shown throughout the site.</span>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Username</label>
+                    <input type="text" class="form-control" value="<?= e($userInfo['username'] ?? '') ?>" disabled style="opacity:.5">
+                    <span class="form-hint">Username cannot be changed.</span>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Email</label>
+                    <input type="text" class="form-control" value="<?= e($userInfo['email'] ?? '') ?>" disabled style="opacity:.5">
+                    <span class="form-hint">Email cannot be changed.</span>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Role</label>
+                    <input type="text" class="form-control" value="<?= e(ucfirst($userInfo['role'] ?? '')) ?>" disabled style="opacity:.5">
+                </div>
+                <button type="submit" class="btn btn-primary w-full" style="justify-content:center">Save Changes</button>
             </div>
-            <div class="form-group">
-                <label class="form-label">Email</label>
-                <input type="text" class="form-control" value="<?= e($userInfo['email'] ?? '') ?>" disabled style="opacity:.5">
-                <span class="form-hint">Email cannot be changed.</span>
-            </div>
-            <div class="form-group">
-                <label class="form-label">Role</label>
-                <input type="text" class="form-control" value="<?= e(ucfirst($userInfo['role'] ?? '')) ?>" disabled style="opacity:.5">
-            </div>
-        </div>
+        </form>
     </div>
 </div>
 

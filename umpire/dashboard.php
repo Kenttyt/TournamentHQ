@@ -78,7 +78,7 @@ require_once __DIR__ . '/../modules/tournaments/bracket_functions.php';
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'result') {
     if (!validateCsrfToken()) {
         setFlash('error', 'Invalid request. Please try again.');
-        header('Location: /TournamentHQ/umpire/dashboard?tournament_id=' . $tid);
+        header('Location: ' . url('/umpire/dashboard?tournament_id=' . $tid));
         exit;
     }
     $matchId = (int) ($_POST['match_id'] ?? 0);
@@ -88,16 +88,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'resul
         recordBracketMatchResult($matchId, $winnerKey, (int) ($_POST['player1_score'] ?? 0), (int) ($_POST['player2_score'] ?? 0), $setScores);
         setFlash('success', 'Match result saved successfully.');
     }
-    header('Location: /TournamentHQ/umpire/dashboard?tournament_id=' . $tid);
+    header('Location: ' . url('/umpire/dashboard?tournament_id=' . $tid));
     exit;
 }
 
 $bracketGroups = $tid ? buildBracketGroups($tid) : [];
-$recordResultUrl = '/TournamentHQ/umpire/dashboard?tournament_id=' . $tid;
+$recordResultUrl = url('/umpire/dashboard') . '?tournament_id=' . $tid;
 $bracketAllowSwap = false;
 
 $flash = getFlash();
-$formAction = '/TournamentHQ/umpire/dashboard?tournament_id=' . $tid;
+$formAction = url('/umpire/dashboard') . '?tournament_id=' . $tid;
 
 $bracketIsTeamEvent = $tournament ? !empty($tournament['is_team_event']) : false;
 $bracketEntrantLabel = $bracketIsTeamEvent ? 'team' : 'player';
@@ -163,7 +163,7 @@ require_once __DIR__ . '/../includes/header.php';
         <div id="umpireGroupBody" style="transition: max-height 0.4s ease-in-out, opacity 0.2s; max-height: 5000px; overflow: hidden; opacity: 1;">
             <div class="card-body" id="umpire-group-view" style="padding: 20px 10px;">
                 <?php
-                $recordResultUrl = '/TournamentHQ/umpire/dashboard?tournament_id=' . $tid;
+                $recordResultUrl = url('/umpire/dashboard') . '?tournament_id=' . $tid;
                 $showOnlyPhase = 'group';
                 include __DIR__ . '/../includes/bracket_view.php';
                 ?>
@@ -197,7 +197,7 @@ require_once __DIR__ . '/../includes/header.php';
         <div id="umpireKnockoutBody" style="transition: max-height 0.4s ease-in-out, opacity 0.2s; max-height: 5000px; overflow: hidden; opacity: 1;">
             <div class="card-body" id="umpire-knockout-view" style="padding: 20px 10px;">
                 <?php
-                $recordResultUrl = '/TournamentHQ/umpire/dashboard?tournament_id=' . $tid;
+                $recordResultUrl = url('/umpire/dashboard') . '?tournament_id=' . $tid;
                 $showOnlyPhase = 'knockout';
                 include __DIR__ . '/../includes/bracket_view.php';
                 ?>
@@ -581,7 +581,7 @@ document.querySelector('#bracketResultModal form')?.addEventListener('submit', f
         isRefreshing = true;
         setStatus('#f0ad4e', 'Updating...');
 
-        var baseUrl = '/TournamentHQ/includes/bracket_view_ajax.php?tournament_id=' + TOURNAMENT_ID + '&record_result_url=' + encodeURIComponent('/TournamentHQ/umpire/dashboard?tournament_id=' + TOURNAMENT_ID) + '&_=';
+        var baseUrl = '<?= url('/includes/bracket_view_ajax.php') ?>?tournament_id=' + TOURNAMENT_ID + '&record_result_url=' + encodeURIComponent('<?= url('/umpire/dashboard') ?>?tournament_id=' + TOURNAMENT_ID) + '&_=';
         var ts = Date.now();
         var pending = 0;
         var updated = false;
@@ -635,7 +635,7 @@ document.querySelector('#bracketResultModal form')?.addEventListener('submit', f
 
     function poll() {
         var xhr = new XMLHttpRequest();
-        xhr.open('GET', '/TournamentHQ/includes/match_timestamp.php?tournament_id=' + TOURNAMENT_ID + '&_=' + Date.now(), true);
+        xhr.open('GET', '<?= url('/includes/match_timestamp.php') ?>?tournament_id=' + TOURNAMENT_ID + '&_=' + Date.now(), true);
         xhr.onload = function() {
             if (xhr.status === 200) {
                 try {

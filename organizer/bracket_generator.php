@@ -9,7 +9,7 @@ require_once __DIR__ . '/../modules/tournaments/tournament_functions.php';
 require_once __DIR__ . '/../modules/tournaments/bracket_functions.php';
 
 $userId = (int) $_SESSION['user_id'];
-$formAction = '/TournamentHQ/organizer/bracket_generator.php';
+$formAction = url('/organizer/bracket_generator.php');
 $tid = (int) ($_GET['tournament_id'] ?? $_POST['tournament_id'] ?? 0);
 
 $myTourneys = getOrganizerTournaments($userId);

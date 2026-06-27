@@ -35,7 +35,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 $flash = getFlash();
 $roleParam = trim($_GET['role'] ?? '');
-$loginUrl = $roleParam === 'organizer' ? '/TournamentHQ/login.php?role=organizer' : '/TournamentHQ/login.php';
+$loginUrl = $roleParam === 'organizer' ? url('/login.php?role=organizer') : url('/login.php');
 $backLink = '<a href="' . e($loginUrl) . '" style="color: var(--primary-light); font-size: 13px; display: inline-flex; align-items: center; gap: 4px; font-weight: 500; text-decoration: none;" class="hover-underline"><i data-lucide="arrow-left" style="width: 14px; height: 14px;"></i> Back to Sign in</a>';
 authPublicHeader('Forgot password', 'Enter your email or username and we will send reset instructions if an account exists.', $backLink);
 

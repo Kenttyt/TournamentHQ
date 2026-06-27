@@ -67,7 +67,7 @@ require_once __DIR__ . '/../includes/header.php';
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89L17 22l-5-3-5 3 1.523-9.11"/></svg>
                 My Tournaments
             </div>
-            <a href="/TournamentHQ/organizer/tournaments.php" class="btn btn-primary btn-sm">
+            <a href="<?= url('/organizer/tournaments.php') ?>" class="btn btn-primary btn-sm">
                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
                 New
             </a>
@@ -109,7 +109,7 @@ require_once __DIR__ . '/../includes/header.php';
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
                 Recent Results
             </div>
-            <a href="/TournamentHQ/organizer/bracket_generator.php" class="btn btn-ghost btn-sm">Open Bracket</a>
+            <a href="<?= url('/organizer/bracket_generator.php') ?>" class="btn btn-ghost btn-sm">Open Bracket</a>
         </div>
         <div class="card-body" style="padding:0">
             <?php if (empty($recentResults)): ?>
@@ -174,7 +174,7 @@ require_once __DIR__ . '/../includes/header.php';
                     <?= $sourceLabel ?>
                     <div class="text-xs text-muted"><?= $r['type'] === 'player' ? 'Account player' : 'Player' ?></div>
                 </td>
-                <td class="text-sm"><a href="/TournamentHQ/organizer/tournaments.php?tournament_id=<?= (int)$r['tournament_id'] ?>"><?= e($r['tournament_name'] ?? 'Unknown') ?></a></td>
+                <td class="text-sm"><a href="<?= url('/organizer/tournaments.php') ?>?tournament_id=<?= (int)$r['tournament_id'] ?>"><?= e($r['tournament_name'] ?? 'Unknown') ?></a></td>
                 <td class="text-sm"><?= e(trim(($r['submitter_first'] ?? '') . ' ' . ($r['submitter_last'] ?? ''))) ?></td>
                 <td class="text-sm">
                     <?php if (!empty($r['payment_proof_path'])): ?>
